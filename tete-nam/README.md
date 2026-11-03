@@ -126,7 +126,7 @@ Changer le nom, le mot de passe ou le comportement : `sudo nano /etc/tete-nam-wi
 
 L'appli **Tête NAM** se connecte en Bluetooth Low Energy et affiche **la même interface que l'écran de la tête** : elle la demande à la tête à la connexion (et la garde en mémoire), puis lui fait passer tous ses réglages en Bluetooth. Une mise à jour de la tête met donc aussi l'appli à jour, sans rien réinstaller.
 
-1. Sur le téléphone, connecté à GitHub (le dépôt est privé), ouvrez https://github.com/NoSaga0717/tete-nam/releases/tag/appli-android et touchez **TeteNAM.apk**. Android demande d'autoriser l'installation depuis le navigateur : acceptez (une seule fois). **Désinstallez d'abord l'ancienne appli** (version Pi 3) : la nouvelle est signée avec une autre clé, Android refuse de l'installer par-dessus.
+1. Sur le téléphone, ouvrez https://github.com/NoSaga0717/stompbox/releases/tag/appli-android et touchez **TeteNAM.apk**. Android demande d'autoriser l'installation depuis le navigateur : acceptez (une seule fois). **Désinstallez d'abord l'ancienne appli** (version Pi 3) : la nouvelle est signée avec une autre clé, Android refuse de l'installer par-dessus.
 2. Ouvrez l'appli, acceptez l'autorisation « Appareils à proximité ». Elle trouve la tête toute seule (nom Bluetooth `TeteNAM`), aucun appairage à faire.
 
 - Une seule appli connectée à la fois. Portée : une dizaine de mètres.
@@ -134,7 +134,7 @@ L'appli **Tête NAM** se connecte en Bluetooth Low Energy et affiche **la même 
 - Android 11 et moins : la localisation du téléphone doit être activée pour la recherche Bluetooth (exigence d'Android).
 - Journal du pont Bluetooth sur la tête : `journalctl -u tete-nam-ble -f`.
 
-Le code de l'appli est dans le dépôt privé `tete-nam` (`software/appli-android`) ; l'APK y est reconstruit automatiquement par GitHub à chaque modification.
+L'APK est reconstruit automatiquement par GitHub à chaque modification de `tete-nam/android/`. La clé de signature n'est pas dans le dépôt (il est public) : elle est dans deux secrets du dépôt, `TETE_NAM_KEYSTORE` (le fichier de clé en base64) et `TETE_NAM_KEYSTORE_MDP` (son mot de passe), à créer une fois dans *Settings → Secrets and variables → Actions*. Sans eux, l'APK est signé avec une clé jetable et chaque mise à jour demande de désinstaller l'appli.
 
 ## Réglages (`/etc/tete-nam.conf`)
 
