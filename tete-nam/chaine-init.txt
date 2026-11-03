@@ -1,0 +1,8 @@
+# Disposition des chaînes de stompbox pour la Tête NAM (lue au démarrage).
+# MasterIn : accordeur et niveau d'entrée, communs à tous les presets.
+# Main     : la grande ligne d'effets et de NAM, celle des presets.
+# MasterOut: volume général (réglé depuis la page, gardé dans /etc/tete-nam.conf).
+SetGlobalChain MasterChain MasterIn Chain Main MasterChain MasterOut
+SetChain MasterIn Tuner Input
+SetChain MasterOut Master
+SetParam Tuner Enabled 0

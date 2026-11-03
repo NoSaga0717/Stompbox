@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <list>
+#include <atomic>
 #include "StompBox.h"
 #include "PluginFactory.h"
 #include "StompboxServer.h"
@@ -79,6 +80,8 @@ protected:
 	int stompCC[16];
 	float minDSPLoad = 1;
 	float maxDSPLoad = 0;
+	float statusMaxDSPLoad = 0;		// max DSP load since the last "Status" command
+	std::atomic<int> xrunCount = 0;
 	int clientUpdateFrame = 0;
 	std::thread* presetLoadThread = nullptr;
 	int ramp = 0;
@@ -241,6 +244,10 @@ public:
 
 	void SetMessageCallback(std::function<void(const std::string)> callback);
 	void ReportDSPLoad(float currentLoad);
+	void ReportXRun()
+	{
+		xrunCount++;
+	}
 	std::string HandleCommand(const std::string& line);
 	bool HandleMidiCommand(int midiCommand, int midiData1, int midiData2);
 	bool CheckMidiCommand(StompBox* plugin, StompBoxParameter* parameter);

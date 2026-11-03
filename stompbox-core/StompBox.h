@@ -76,8 +76,17 @@ public:
 	bool ParamIsDirty = false;
 	std::function<void(int, int, int)> MidiCallback = nullptr;
 
+	// Settings shared by all plugins, set by the host before plugins process audio
+	static int MaxAudioBufferSize;		// largest block the host passes to compute()
+	static float AudioInputLevelDBu;	// interface input level (dBu) that gives 0 dBFS
+
 	StompBox();
 	virtual ~StompBox();
+	// Re-read file lists (ie: new model files were added). Returns true if the list may have changed.
+	virtual bool RescanFiles()
+	{
+		return false;
+	}
 	virtual StompBoxParameter& AddParameter()
 	{
 		auto& param = Parameters.emplace_back();

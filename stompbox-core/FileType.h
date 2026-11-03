@@ -152,6 +152,12 @@ public:
 		}
 	}
 
+	// The file list was re-read: the same loaded file can now be at another index
+	void SetLoadedIndex(int index)
+	{
+		loadedIndex = index;
+	}
+
 	T* GetCurrentData()
 	{
 		if (haveStagedData)

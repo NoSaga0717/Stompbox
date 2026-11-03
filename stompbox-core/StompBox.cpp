@@ -11,6 +11,9 @@ void StompBoxParameter::SetValue(float value)
 	return Stomp->SetParameterValue(*this, value);
 }
 
+int StompBox::MaxAudioBufferSize = 512;
+float StompBox::AudioInputLevelDBu = 12;
+
 StompBox::StompBox()
 {
 }

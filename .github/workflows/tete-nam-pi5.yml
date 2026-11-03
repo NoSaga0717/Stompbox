@@ -1,0 +1,55 @@
+name: Tete NAM - moteur Pi 5
+
+# Vérifie que le moteur stompbox-jack se compile pour le Raspberry Pi 5
+# (ARM 64 bits, Cortex-A76) et que les scripts Python de la tête sont valides.
+# Le binaire est gardé comme artefact (téléchargeable depuis l'onglet Actions) ;
+# sur la tête, install.sh compile lui-même.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'stompbox-core/**'
+      - 'stompbox-stomps/**'
+      - 'stompbox-jack/**'
+      - 'Dependencies/**'
+      - 'CMakeLists.txt'
+      - 'tete-nam/**'
+      - '.github/workflows/tete-nam-pi5.yml'
+
+jobs:
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scripts Python et shell
+        run: |
+          python3 -m py_compile tete-nam/*.py
+          for f in tete-nam/*.sh; do bash -n "$f"; done
+
+  pi5:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/tttapa/docker-arm-cross-toolchain:aarch64-rpi3-linux-gnu-gcc12
+      options: --user root
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Compiler stompbox-jack (aarch64, Pi 5)
+        run: |
+          mkdir -p build && cd build
+          wget -q https://github.com/mikeoliphant/jack-dev-rpi/raw/refs/heads/main/jackdev.tgz
+          tar -xzf jackdev.tgz
+          SYSROOT=/home/develop/opt/x-tools/aarch64-rpi3-linux-gnu/aarch64-rpi3-linux-gnu/sysroot
+          cp -r jackdev/lib/* $SYSROOT/usr/lib/
+          cp -r jackdev/include/* $SYSROOT/usr/include
+          cmake .. -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=/home/develop/opt/x-tools/aarch64-rpi3-linux-gnu/aarch64-rpi5-linux-gnu.toolchain.cmake
+          make -j4 stompbox-jack
+          tar -czf stompbox-jack-pi5.tgz -C stompbox-jack stompbox-jack
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stompbox-jack-pi5
+          path: build/stompbox-jack-pi5.tgz

@@ -1,0 +1,31 @@
+[Unit]
+Description=Tete NAM - interface tactile sur l'ecran de la tete
+After=tete-nam-web.service systemd-user-sessions.service plymouth-quit-wait.service
+Wants=tete-nam-web.service
+# L'écran remplace la console texte sur tty1
+Conflicts=getty@tty1.service
+After=getty@tty1.service
+
+[Service]
+Type=simple
+User=__USER__
+# Session de connexion sur tty1 (fichier /etc/pam.d/tete-nam-ecran) : donne
+# accès à l'écran tactile et au processeur graphique
+PAMName=tete-nam-ecran
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+StandardInput=tty-fail
+StandardOutput=journal
+StandardError=journal
+UtmpIdentifier=tty1
+UtmpMode=user
+ExecStart=/opt/tete-nam/ecran.sh
+Restart=always
+RestartSec=3
+# Priorité basse : l'affichage ne doit jamais gêner l'audio
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

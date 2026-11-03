@@ -47,5 +47,6 @@ public:
 	}
 	void ReleasePlugin(std::string id);
 	StompBox* FindPlugin(std::string id);
+	void RescanFiles();
 };
 
