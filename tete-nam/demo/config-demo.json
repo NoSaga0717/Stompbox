@@ -1,0 +1,1028 @@
+{
+ "cfg": "071f6ab7df",
+ "types": {
+  "NoiseGate": {
+   "nom": "Noise gate",
+   "court": "Gate",
+   "categorie": "dyn",
+   "icone": "▤",
+   "description": "Multi-band noise gate",
+   "params": [
+    {
+     "nom": "Thresh",
+     "type": "bouton",
+     "min": -120.0,
+     "max": 0.0,
+     "defaut": -70.0,
+     "format": "{0:0}db",
+     "avance": false,
+     "sortie": false,
+     "description": "Gate threshold",
+     "valeurs": [],
+     "libelle": "Seuil"
+    },
+    {
+     "nom": "Strength",
+     "type": "bouton",
+     "min": 1.0,
+     "max": 96.0,
+     "defaut": 24.0,
+     "format": "{0:0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "Amount of gate attenuation",
+     "valeurs": [],
+     "libelle": "Force"
+    },
+    {
+     "nom": "Attack",
+     "type": "bouton",
+     "min": 1.0,
+     "max": 50.0,
+     "defaut": 10.0,
+     "format": "{0:0}ms",
+     "avance": true,
+     "sortie": false,
+     "description": "Reaction time for gate opening",
+     "valeurs": [],
+     "libelle": "Attaque"
+    },
+    {
+     "nom": "Release",
+     "type": "bouton",
+     "min": 1.0,
+     "max": 50.0,
+     "defaut": 10.0,
+     "format": "{0:0}ms",
+     "avance": true,
+     "sortie": false,
+     "description": "Reaction time for gate closing",
+     "valeurs": [],
+     "libelle": "Relâche"
+    },
+    {
+     "nom": "Soft",
+     "type": "bouton",
+     "min": 1.0,
+     "max": 18.0,
+     "defaut": 12.0,
+     "format": "{0:0}dB",
+     "avance": true,
+     "sortie": false,
+     "description": "dB range above threshold for smooth open/close",
+     "valeurs": [],
+     "libelle": "Douceur"
+    }
+   ]
+  },
+  "Compressor": {
+   "nom": "Compresseur",
+   "court": "Comp.",
+   "categorie": "dyn",
+   "icone": "◐",
+   "description": "Audio level compressor",
+   "params": [
+    {
+     "nom": "Thresh",
+     "type": "bouton",
+     "min": -40.0,
+     "max": 0.0,
+     "defaut": -20.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "Compression threshold in dB",
+     "valeurs": [],
+     "libelle": "Seuil"
+    },
+    {
+     "nom": "Ratio",
+     "type": "bouton",
+     "min": 1.0,
+     "max": 20.0,
+     "defaut": 2.0,
+     "format": "{0:0.0}",
+     "avance": false,
+     "sortie": false,
+     "description": "Compression ratio",
+     "valeurs": [],
+     "libelle": "Ratio"
+    },
+    {
+     "nom": "Attack",
+     "type": "bouton",
+     "min": 0.2,
+     "max": 50.0,
+     "defaut": 2.0,
+     "format": "{0:0.0}ms",
+     "avance": false,
+     "sortie": false,
+     "description": "Compression attack time (ms)",
+     "valeurs": [],
+     "libelle": "Attaque"
+    },
+    {
+     "nom": "Release",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1000.0,
+     "defaut": 20.0,
+     "format": "{0:0.0}ms",
+     "avance": false,
+     "sortie": false,
+     "description": "Compression release time (ms)",
+     "valeurs": [],
+     "libelle": "Relâche"
+    },
+    {
+     "nom": "Blend",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 1.0,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Wet/dry effect blend",
+     "valeurs": [],
+     "libelle": "Mix"
+    }
+   ]
+  },
+  "Boost": {
+   "nom": "Boost",
+   "court": "Boost",
+   "categorie": "drive",
+   "icone": "▲",
+   "description": "Clean boost effect",
+   "params": [
+    {
+     "nom": "Gain",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 20.0,
+     "defaut": 10.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "Gain strength in dB",
+     "valeurs": [],
+     "libelle": "Gain"
+    }
+   ]
+  },
+  "Screamer": {
+   "nom": "Overdrive",
+   "court": "Overdrive",
+   "categorie": "drive",
+   "icone": "◆",
+   "description": "Tube screamer drive effect",
+   "params": [
+    {
+     "nom": "Drive",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Drive/strength",
+     "valeurs": [],
+     "libelle": "Drive"
+    },
+    {
+     "nom": "Tone",
+     "type": "bouton",
+     "min": 100.0,
+     "max": 1000.0,
+     "defaut": 1000.0,
+     "format": "{0:0}hz",
+     "avance": false,
+     "sortie": false,
+     "description": "Amount of high frequency roll-off",
+     "valeurs": [],
+     "libelle": "Tonalité"
+    },
+    {
+     "nom": "Level",
+     "type": "bouton",
+     "min": -20.0,
+     "max": 20.0,
+     "defaut": -6.0,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Output volume level",
+     "valeurs": [],
+     "libelle": "Niveau"
+    }
+   ]
+  },
+  "Fuzz": {
+   "nom": "Fuzz",
+   "court": "Fuzz",
+   "categorie": "drive",
+   "icone": "✸",
+   "description": "Simple fuzz simulation",
+   "params": [
+    {
+     "nom": "Fuzz",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Fuzz effect strength",
+     "valeurs": [],
+     "libelle": "Fuzz"
+    },
+    {
+     "nom": "Level",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Effect output level",
+     "valeurs": [],
+     "libelle": "Niveau"
+    },
+    {
+     "nom": "Octave",
+     "type": "interrupteur",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.0,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Enable/disable octave effect",
+     "valeurs": [],
+     "libelle": "Octave"
+    },
+    {
+     "nom": "Bias",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": true,
+     "sortie": false,
+     "description": "DC offset bias",
+     "valeurs": [],
+     "libelle": "Polarisation"
+    }
+   ]
+  },
+  "NAM": {
+   "nom": "NAM",
+   "court": "NAM",
+   "categorie": "nam",
+   "icone": "▣",
+   "description": "Neural Amp Modeler capture playback",
+   "params": [
+    {
+     "nom": "Gain",
+     "type": "bouton",
+     "min": -40.0,
+     "max": 40.0,
+     "defaut": 0.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "Gain strength in dB",
+     "valeurs": [],
+     "libelle": "Entrée"
+    },
+    {
+     "nom": "Model",
+     "type": "fichier",
+     "min": -1.0,
+     "max": 3,
+     "defaut": -1.0,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Selected NAM model",
+     "valeurs": [
+      "Ampli clean A2",
+      "Ampli crunch A2",
+      "Ampli lead A2",
+      "Overdrive A2"
+     ],
+     "libelle": "Modèle"
+    },
+    {
+     "nom": "Quality",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 1.0,
+     "format": "{0:0.00}",
+     "avance": true,
+     "sortie": false,
+     "description": "Model quality scale factor",
+     "valeurs": [],
+     "libelle": "Qualité"
+    },
+    {
+     "nom": "OutputMode",
+     "type": "liste",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.0,
+     "format": "{0:0.00}",
+     "avance": true,
+     "sortie": false,
+     "description": "Normalized: same loudness for all models. Calibrated: same level as the captured gear",
+     "valeurs": [
+      "Normalized",
+      "Calibrated"
+     ],
+     "libelle": "Sortie",
+     "libelles": [
+      "Normalisé",
+      "Calibré"
+     ]
+    },
+    {
+     "nom": "Volume",
+     "type": "bouton",
+     "min": -40.0,
+     "max": 40.0,
+     "defaut": 0.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "Gain strength in dB",
+     "valeurs": [],
+     "libelle": "Sortie"
+    }
+   ]
+  },
+  "Wah": {
+   "nom": "Wah",
+   "court": "Wah",
+   "categorie": "filtre",
+   "icone": "◠",
+   "description": "Wah designed for use with a foot pedal",
+   "params": [
+    {
+     "nom": "Wah",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Effect strength",
+     "valeurs": [],
+     "libelle": "Pédale"
+    }
+   ]
+  },
+  "AutoWah": {
+   "nom": "Auto-wah",
+   "court": "Auto-wah",
+   "categorie": "filtre",
+   "icone": "◡",
+   "description": "Wah effect with auto open/close",
+   "params": [
+    {
+     "nom": "Level",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Wah effect strength",
+     "valeurs": [],
+     "libelle": "Niveau"
+    }
+   ]
+  },
+  "EQ-7": {
+   "nom": "EQ 7 bandes",
+   "court": "EQ",
+   "categorie": "filtre",
+   "icone": "☰",
+   "description": "7-band EQ for guitar frequencies",
+   "params": [
+    {
+     "nom": "100",
+     "type": "bouton",
+     "min": -15.0,
+     "max": 15.0,
+     "defaut": 0.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "",
+     "valeurs": [],
+     "libelle": "100 Hz"
+    },
+    {
+     "nom": "200",
+     "type": "bouton",
+     "min": -15.0,
+     "max": 15.0,
+     "defaut": 0.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "",
+     "valeurs": [],
+     "libelle": "200 Hz"
+    },
+    {
+     "nom": "400",
+     "type": "bouton",
+     "min": -15.0,
+     "max": 15.0,
+     "defaut": 0.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "",
+     "valeurs": [],
+     "libelle": "400 Hz"
+    },
+    {
+     "nom": "800",
+     "type": "bouton",
+     "min": -15.0,
+     "max": 15.0,
+     "defaut": 0.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "",
+     "valeurs": [],
+     "libelle": "800 Hz"
+    },
+    {
+     "nom": "1.6k",
+     "type": "bouton",
+     "min": -15.0,
+     "max": 15.0,
+     "defaut": 0.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "",
+     "valeurs": [],
+     "libelle": "1.6k Hz"
+    },
+    {
+     "nom": "3.2k",
+     "type": "bouton",
+     "min": -15.0,
+     "max": 15.0,
+     "defaut": 0.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "",
+     "valeurs": [],
+     "libelle": "3.2k Hz"
+    },
+    {
+     "nom": "6.4k",
+     "type": "bouton",
+     "min": -15.0,
+     "max": 15.0,
+     "defaut": 0.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "",
+     "valeurs": [],
+     "libelle": "6.4k Hz"
+    },
+    {
+     "nom": "Vol",
+     "type": "bouton",
+     "min": -15.0,
+     "max": 15.0,
+     "defaut": 0.0,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "",
+     "valeurs": [],
+     "libelle": "Volume"
+    }
+   ]
+  },
+  "HighLow": {
+   "nom": "Coupe-bas / haut",
+   "court": "Filtre",
+   "categorie": "filtre",
+   "icone": "⌒",
+   "description": "Dual high/low pass filter",
+   "params": [
+    {
+     "nom": "Low",
+     "type": "bouton",
+     "min": 1.0,
+     "max": 500.0,
+     "defaut": 1.0,
+     "format": "{0:0}hz",
+     "avance": false,
+     "sortie": false,
+     "description": "Low cut (high pass) frequency",
+     "valeurs": [],
+     "libelle": "Coupe-bas"
+    },
+    {
+     "nom": "High",
+     "type": "bouton",
+     "min": 1000.0,
+     "max": 20000.0,
+     "defaut": 20000.0,
+     "format": "{0:0}hz",
+     "avance": false,
+     "sortie": false,
+     "description": "High cut (low pass) frequency",
+     "valeurs": [],
+     "libelle": "Coupe-haut"
+    }
+   ]
+  },
+  "Chorus": {
+   "nom": "Chorus",
+   "court": "Chorus",
+   "categorie": "mod",
+   "icone": "≈",
+   "description": "Chorus effect",
+   "params": [
+    {
+     "nom": "Rate",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 5.0,
+     "defaut": 2.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Speed of the chorus effect",
+     "valeurs": [],
+     "libelle": "Vitesse"
+    },
+    {
+     "nom": "Depth",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 0.2,
+     "defaut": 0.1,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "How pronounced the effect is",
+     "valeurs": [],
+     "libelle": "Profondeur"
+    }
+   ]
+  },
+  "Flanger": {
+   "nom": "Flanger",
+   "court": "Flanger",
+   "categorie": "mod",
+   "icone": "∽",
+   "description": "Flanging effect",
+   "params": [
+    {
+     "nom": "Rate",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 5.0,
+     "defaut": 0.2,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Rate of frequency modulation",
+     "valeurs": [],
+     "libelle": "Vitesse"
+    },
+    {
+     "nom": "Depth",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 1.0,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Strength of frequency modulation",
+     "valeurs": [],
+     "libelle": "Profondeur"
+    },
+    {
+     "nom": "FBack",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "System feedback level",
+     "valeurs": [],
+     "libelle": "Réinjection"
+    }
+   ]
+  },
+  "Phaser": {
+   "nom": "Phaser",
+   "court": "Phaser",
+   "categorie": "mod",
+   "icone": "◎",
+   "description": "Phaser effect",
+   "params": [
+    {
+     "nom": "Speed",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 10.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Rate of phaser sweep",
+     "valeurs": [],
+     "libelle": "Vitesse"
+    },
+    {
+     "nom": "Depth",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 0.5,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Strength of phaser effect",
+     "valeurs": [],
+     "libelle": "Profondeur"
+    },
+    {
+     "nom": "FrqWidth",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.3,
+     "format": "{0:0.00}",
+     "avance": true,
+     "sortie": false,
+     "description": "Frequency width of phaser sweep",
+     "valeurs": [],
+     "libelle": "Largeur"
+    },
+    {
+     "nom": "Ratio",
+     "type": "bouton",
+     "min": 1.1,
+     "max": 4.0,
+     "defaut": 1.5,
+     "format": "{0:0.00}",
+     "avance": true,
+     "sortie": false,
+     "description": "Phaser frequency ratio",
+     "valeurs": [],
+     "libelle": "Ratio"
+    },
+    {
+     "nom": "FBack",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": true,
+     "sortie": false,
+     "description": "Amount of phased signal feed back",
+     "valeurs": [],
+     "libelle": "Réinjection"
+    }
+   ]
+  },
+  "Vibrato": {
+   "nom": "Vibrato",
+   "court": "Vibrato",
+   "categorie": "mod",
+   "icone": "≋",
+   "description": "Pitch modulation effect",
+   "params": [
+    {
+     "nom": "Speed",
+     "type": "bouton",
+     "min": 0.1,
+     "max": 10.0,
+     "defaut": 2.0,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Rate of the pitch modulation",
+     "valeurs": [],
+     "libelle": "Vitesse"
+    },
+    {
+     "nom": "Depth",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Strength of the pitch modulation",
+     "valeurs": [],
+     "libelle": "Profondeur"
+    },
+    {
+     "nom": "FBack",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": true,
+     "sortie": false,
+     "description": "Amount of feedback applied",
+     "valeurs": [],
+     "libelle": "Réinjection"
+    },
+    {
+     "nom": "Ratio",
+     "type": "bouton",
+     "min": 1.1,
+     "max": 4.0,
+     "defaut": 1.5,
+     "format": "{0:0.00}",
+     "avance": true,
+     "sortie": false,
+     "description": "Modulation frequency ratio",
+     "valeurs": [],
+     "libelle": "Ratio"
+    }
+   ]
+  },
+  "Tremolo": {
+   "nom": "Trémolo",
+   "court": "Trémolo",
+   "categorie": "mod",
+   "icone": "⋯",
+   "description": "Tremolo (volume modulation) effect",
+   "params": [
+    {
+     "nom": "Speed",
+     "type": "bouton",
+     "min": 1.0,
+     "max": 20.0,
+     "defaut": 5.0,
+     "format": "{0:0.0}hz",
+     "avance": false,
+     "sortie": false,
+     "description": "Modulation speed",
+     "valeurs": [],
+     "libelle": "Vitesse"
+    },
+    {
+     "nom": "Depth",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.8,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Amount of modulation volume variance",
+     "valeurs": [],
+     "libelle": "Profondeur"
+    },
+    {
+     "nom": "Shape",
+     "type": "bouton",
+     "min": 0.05,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Smooth vs squared modulation shape",
+     "valeurs": [],
+     "libelle": "Forme"
+    }
+   ]
+  },
+  "Delay": {
+   "nom": "Délai",
+   "court": "Délai",
+   "categorie": "temps",
+   "icone": "↻",
+   "description": "Signal delay effect",
+   "params": [
+    {
+     "nom": "Delay",
+     "type": "bouton",
+     "min": 1.0,
+     "max": 1000.0,
+     "defaut": 250.0,
+     "format": "{0:0}ms",
+     "avance": false,
+     "sortie": false,
+     "description": "Delay time",
+     "valeurs": [],
+     "libelle": "Temps"
+    },
+    {
+     "nom": "Mix",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.2,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Delay volume",
+     "valeurs": [],
+     "libelle": "Mix"
+    },
+    {
+     "nom": "FBack",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Amount of delay decay",
+     "valeurs": [],
+     "libelle": "Répétitions"
+    },
+    {
+     "nom": "Warm",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": true,
+     "sortie": false,
+     "description": "Amount of frequency filtering in the decay",
+     "valeurs": [],
+     "libelle": "Chaleur"
+    },
+    {
+     "nom": "HiLo",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": true,
+     "sortie": false,
+     "description": "Bias of filtering toward low/high frequencies",
+     "valeurs": [],
+     "libelle": "Filtre"
+    }
+   ]
+  },
+  "Reverb": {
+   "nom": "Réverbe",
+   "court": "Réverbe",
+   "categorie": "temps",
+   "icone": "∿",
+   "description": "Simple room reverb",
+   "params": [
+    {
+     "nom": "Size",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.5,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Room size",
+     "valeurs": [],
+     "libelle": "Taille"
+    },
+    {
+     "nom": "Decay",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 10.0,
+     "defaut": 5.0,
+     "format": "{0:0.0}",
+     "avance": false,
+     "sortie": false,
+     "description": "Length of reverb decay",
+     "valeurs": [],
+     "libelle": "Durée"
+    },
+    {
+     "nom": "Blend",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 100.0,
+     "defaut": 50.0,
+     "format": "{0:0}",
+     "avance": false,
+     "sortie": false,
+     "description": "Dry/wet effect blend",
+     "valeurs": [],
+     "libelle": "Mix"
+    }
+   ]
+  },
+  "Level": {
+   "nom": "Volume",
+   "court": "Volume",
+   "categorie": "util",
+   "icone": "◖",
+   "description": "Simple volume/gain effect",
+   "params": [
+    {
+     "nom": "Volume",
+     "type": "bouton",
+     "min": -40.0,
+     "max": 40.0,
+     "defaut": 0.0,
+     "format": "{0:0.0}dB",
+     "avance": false,
+     "sortie": false,
+     "description": "Gain strength in dB",
+     "valeurs": [],
+     "libelle": "Volume"
+    }
+   ]
+  }
+ },
+ "ordre": [
+  "NoiseGate",
+  "Compressor",
+  "Boost",
+  "Screamer",
+  "Fuzz",
+  "NAM",
+  "Wah",
+  "AutoWah",
+  "EQ-7",
+  "HighLow",
+  "Chorus",
+  "Flanger",
+  "Phaser",
+  "Vibrato",
+  "Tremolo",
+  "Delay",
+  "Reverb",
+  "Level"
+ ],
+ "categories": [
+  [
+   "dyn",
+   "Dynamique"
+  ],
+  [
+   "drive",
+   "Saturation"
+  ],
+  [
+   "nam",
+   "Ampli / pédale NAM"
+  ],
+  [
+   "filtre",
+   "Filtres et EQ"
+  ],
+  [
+   "mod",
+   "Modulation"
+  ],
+  [
+   "temps",
+   "Délai et réverbe"
+  ],
+  [
+   "util",
+   "Utilitaires"
+  ]
+ ],
+ "modeles": [
+  "Ampli clean A2",
+  "Ampli crunch A2",
+  "Ampli lead A2",
+  "Overdrive A2"
+ ]
+}

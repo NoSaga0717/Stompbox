@@ -171,6 +171,8 @@ La chaîne et les presets ne sont pas dans ce fichier : ils sont dans `~/tete-na
 
 Après une modification à la main : `sudo systemctl restart tete-nam` (audio) ou `sudo systemctl restart tete-nam-ecran` (écran).
 
+**Essayer sans la tête** : `python3 demo/fabriquer.py` fabrique dans `demo/sortie/` une démo de cette interface, branchée sur une tête simulée (pas de son, presets gardés dans le navigateur, envoi de modèles désactivé). Ouvrir `demo/sortie/index.html` via un petit serveur web (`python3 -m http.server` dans ce dossier) : formats écran 800×480, téléphone et PC.
+
 ## Comment c'est organisé
 
 | Service | Programme | Rôle |
