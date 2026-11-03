@@ -9,6 +9,8 @@
 #endif
 #include <jack/jack.h>
 #include <jack/midiport.h>
+#include <sstream>
+#include <string>
 
 #include "PluginProcessor.h"
 #include "SysExMapper.h"
@@ -133,6 +135,48 @@ int process(jack_nframes_t nframes, void* arg)
     return 0;
 }
 
+int xrun(void* arg)
+{
+    (void)arg;
+
+    if (guitarProcessor != nullptr)
+        guitarProcessor->ReportXRun();
+
+    return 0;
+}
+
+// Connects our port to the JACK ports listed (space separated) in an environment variable.
+// Returns false if the variable is not set (then the default physical ports are used).
+static bool ConnectFromEnvironment(const char* envName, jack_port_t* port, int portIndex, bool isInput)
+{
+    const char* env = getenv(envName);
+
+    if (env == nullptr)
+        return false;
+
+    std::istringstream words(env);
+    std::string name;
+
+    for (int i = 0; words >> name; i++)
+    {
+        if (i != portIndex)
+            continue;
+
+        if (name == "none")
+            break;
+
+        fprintf(stderr, "connecting %s to [%s]\n", jack_port_name(port), name.c_str());
+
+        int result = isInput ? jack_connect(client, name.c_str(), jack_port_name(port)) :
+            jack_connect(client, jack_port_name(port), name.c_str());
+
+        if (result)
+            fprintf(stderr, "cannot connect port %s\n", name.c_str());
+    }
+
+    return true;
+}
+
 /**
  * JACK calls this shutdown_callback if the server ever shuts down or
  * decides to disconnect the client.
@@ -238,6 +282,8 @@ int main(int argc, char* argv[])
 
     jack_on_shutdown(client, jack_shutdown, 0);
 
+    jack_set_xrun_callback(client, xrun, 0);
+
     /* create two ports pairs*/
     input_ports = (jack_port_t**)calloc(2, sizeof(jack_port_t*));
     output_ports = (jack_port_t**)calloc(2, sizeof(jack_port_t*));
@@ -263,18 +309,33 @@ int main(int argc, char* argv[])
 
     guitarProcessor = new PluginProcessor(std::filesystem::current_path());
 
+    // Before any plugin is created: models must be ready for the JACK block size
+    guitarProcessor->SetMaxAudioBufferSize(jack_get_buffer_size(client));
+
     AddDefaultPlugins(guitarProcessor->GetPluginFactory());
 
     guitarProcessor->Init((float)jack_get_sample_rate(client));
 
-    guitarProcessor->HandleCommand("SetGlobalChain MasterChain MasterIn Chain Input Slot Amp Slot Tonestack Chain FxLoop Slot Cabinet Chain Output MasterChain MasterOut");
+    // STOMPBOX_INIT can point to a file of commands that sets up the chains instead of the default layout
+    const char* initFile = getenv("STOMPBOX_INIT");
 
-    guitarProcessor->HandleCommand("SetChain MasterIn AudioFileRecorder Tuner Input");
-    guitarProcessor->HandleCommand("SetChain MasterOut AudioFilePlayer Master");
+    if ((initFile != nullptr) && std::filesystem::exists(initFile))
+    {
+        fprintf(stderr, "Chain layout from %s\n", initFile);
 
-    guitarProcessor->HandleCommand("SetPluginSlot Amp NAM");
-    guitarProcessor->HandleCommand("SetPluginSlot Tonestack EQ-7");
-    guitarProcessor->HandleCommand("SetPluginSlot Cabinet Cabinet");
+        guitarProcessor->LoadCommandsFromFile(initFile);
+    }
+    else
+    {
+        guitarProcessor->HandleCommand("SetGlobalChain MasterChain MasterIn Chain Input Slot Amp Slot Tonestack Chain FxLoop Slot Cabinet Chain Output MasterChain MasterOut");
+
+        guitarProcessor->HandleCommand("SetChain MasterIn AudioFileRecorder Tuner Input");
+        guitarProcessor->HandleCommand("SetChain MasterOut AudioFilePlayer Master");
+
+        guitarProcessor->HandleCommand("SetPluginSlot Amp NAM");
+        guitarProcessor->HandleCommand("SetPluginSlot Tonestack EQ-7");
+        guitarProcessor->HandleCommand("SetPluginSlot Cabinet Cabinet");
+    }
 
     guitarProcessor->LoadSettings();
 
@@ -302,71 +363,65 @@ int main(int argc, char* argv[])
      * it.
      */
 
-    ports = jack_get_ports(client, NULL, NULL, JackPortIsPhysical | JackPortIsOutput);
-
-    if (ports == NULL)
+    // STOMPBOX_INPUT / STOMPBOX_OUTPUTS: JACK ports to connect to (space separated, "none" to leave
+    // a port unconnected), instead of the first physical ones
+    if (!ConnectFromEnvironment("STOMPBOX_INPUT", input_ports[0], 0, true))
     {
-        fprintf(stderr, "no physical capture ports\n");
-        exit(1);
-    }
+        ports = jack_get_ports(client, NULL, NULL, JackPortIsPhysical | JackPortIsOutput);
 
-    int numAudioInputPorts = 0;
+        if (ports == NULL)
+        {
+            fprintf(stderr, "no physical capture ports\n");
+            exit(1);
+        }
 
-    while (ports[numAudioInputPorts] != NULL)
-        numAudioInputPorts++;
+        fprintf(stderr, "connecting to input port [%s]\n", ports[0]);
 
-    fprintf(stderr, "%d audio input ports found\n", numAudioInputPorts);
-
-    if (numAudioInputPorts < 1)
-    {
-        jack_free(ports);
-
-        fprintf(stderr, "Less than 1 audio input ports\n");
-        exit(1);
-    }
-
-    for (int i = 0; i < 1; i++)
-    {
-        fprintf(stderr, "connecting to input port [%s]\n", ports[i]);
-
-        if (jack_connect(client, ports[i], jack_port_name(input_ports[i])))
+        if (jack_connect(client, ports[0], jack_port_name(input_ports[0])))
             fprintf(stderr, "cannot connect port\n");
-    }
 
-    jack_free(ports);
-
-    ports = jack_get_ports(client, NULL, NULL, JackPortIsPhysical | JackPortIsInput);
-
-    if (ports == NULL)
-    {
-        fprintf(stderr, "no physical playback ports\n");
-        exit(1);
-    }
-
-    int numAudioOutputPorts = 0;
-
-    while (ports[numAudioOutputPorts] != NULL)
-        numAudioOutputPorts++;
-
-    fprintf(stderr, "%d audio output ports found\n", numAudioInputPorts);
-
-    if (numAudioOutputPorts < 2)
-    {
         jack_free(ports);
-
-        fprintf(stderr, "Less than 2 audio output ports\n");
-        exit(1);
     }
 
-    for (int i = 0; i < 2; i++)
+    if (ConnectFromEnvironment("STOMPBOX_OUTPUTS", output_ports[0], 0, false))
     {
-        fprintf(stderr, "connecting to output port [%s]\n", ports[i]);
-
-        if (jack_connect(client, jack_port_name(output_ports[i]), ports[i]))
-            fprintf(stderr, "cannot connect port\n");
+        ConnectFromEnvironment("STOMPBOX_OUTPUTS", output_ports[1], 1, false);
     }
+    else
+    {
+        ports = jack_get_ports(client, NULL, NULL, JackPortIsPhysical | JackPortIsInput);
 
-    jack_free(ports);
+        if (ports == NULL)
+        {
+            fprintf(stderr, "no physical playback ports\n");
+            exit(1);
+        }
+
+        int numAudioOutputPorts = 0;
+
+        while (ports[numAudioOutputPorts] != NULL)
+            numAudioOutputPorts++;
+
+        fprintf(stderr, "%d audio output ports found\n", numAudioOutputPorts);
+
+        if (numAudioOutputPorts < 2)
+        {
+            jack_free(ports);
+
+            fprintf(stderr, "Less than 2 audio output ports\n");
+            exit(1);
+        }
+
+        for (int i = 0; i < 2; i++)
+        {
+            fprintf(stderr, "connecting to output port [%s]\n", ports[i]);
+
+            if (jack_connect(client, jack_port_name(output_ports[i]), ports[i]))
+                fprintf(stderr, "cannot connect port\n");
+        }
+
+        jack_free(ports);
+    }
 
     ports = jack_get_ports(client, NULL, JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput);
 

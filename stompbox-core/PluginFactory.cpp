@@ -50,6 +50,14 @@ StompBox* PluginFactory::CreatePlugin(std::string const& name, std::string const
 		component->Name.assign(name);
 		component->ID.assign(id);
 
+		// Input gain / output volume parameters are saved under the plugin ID, so they must match
+		// (otherwise a second instance like "NAM_2" would save and load them as "NAM")
+		if (component->InputGain != nullptr)
+			component->InputGain->ID.assign(id);
+
+		if (component->OutputVolume != nullptr)
+			component->OutputVolume->ID.assign(id);
+
 		loadedPlugins[component->ID] = component;
 
 		fprintf(stderr, "Loaded Plugin %s\n", id.c_str());
@@ -71,6 +79,14 @@ void PluginFactory::ReleasePlugin(std::string id)
 		loadedPlugins.erase(id);
 
 		fprintf(stderr, "Releasing Plugin %s\n", id.c_str());
+	}
+}
+
+void PluginFactory::RescanFiles()
+{
+	for (auto& kv : loadedPlugins)
+	{
+		kv.second->RescanFiles();
 	}
 }
 

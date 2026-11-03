@@ -74,7 +74,9 @@ PluginProcessor::PluginProcessor(std::filesystem::path dataPath)
 
     needPluginUpdate = true;
 
-    serialDisplayInterface.Connect();
+    // STOMPBOX_NO_SERIAL_DISPLAY: don't probe the serial port (it may belong to another device)
+    if (getenv("STOMPBOX_NO_SERIAL_DISPLAY") == nullptr)
+        serialDisplayInterface.Connect();
 
     //StartServer();
 
@@ -115,6 +117,8 @@ void PluginProcessor::Init(float newSampleRate)
 void PluginProcessor::SetMaxAudioBufferSize(size_t numSamples)
 {
     splitBuffer.resize(numSamples);
+
+    StompBox::MaxAudioBufferSize = (int)numSamples;
 }
 
 void PluginProcessor::ScanPresets()
@@ -169,6 +173,9 @@ void PluginProcessor::ReportDSPLoad(float currentLoad)
 
     if (currentLoad > maxDSPLoad)
         maxDSPLoad = currentLoad;
+
+    if (currentLoad > statusMaxDSPLoad)
+        statusMaxDSPLoad = currentLoad;
 }
 
 void PluginProcessor::UpdateClient()
@@ -582,6 +589,10 @@ std::string PluginProcessor::DumpSettings()
 
     dump.append(DumpProgram(true));
 
+    dump.append("SetInputLevelDBu ");
+    dump.append(std::to_string(StompBox::AudioInputLevelDBu));
+    dump.append("\r\n");
+
     if (modeChangeCC != -1)
     {
         dump.append("MapModeController ");
@@ -730,7 +741,9 @@ std::string PluginProcessor::HandleCommand(std::string const& line)
 {
     std::string err;
 
-    std::cerr << "Got message: " << line << "\n";
+    // "Status" is polled every second by remote interfaces: don't flood the log with it
+    if (line != "Status")
+        std::cerr << "Got message: " << line << "\n";
 
     std::vector<std::string> commandWords;
     std::istringstream iss(line);
@@ -901,19 +914,26 @@ std::string PluginProcessor::HandleCommand(std::string const& line)
                                             paramValue += " " + commandWords[i];
                                         }
 
-                                        const std::vector<std::string>* enumValues = param->EnumValues;
-
                                         bool gotEnum = false;
 
-                                        for (size_t e = 0; e < enumValues->size(); e++)
+                                        // Second pass only if the file list was re-read (new files added since startup)
+                                        for (int pass = 0; (pass < 2) && !gotEnum; pass++)
                                         {
-                                            if ((*enumValues)[e] == paramValue)
-                                            {
-                                                param->SetValue((float)e);
-
-                                                gotEnum = true;
-
+                                            if ((pass == 1) && !component->RescanFiles())
                                                 break;
+
+                                            const std::vector<std::string>* enumValues = param->EnumValues;
+
+                                            for (size_t e = 0; e < enumValues->size(); e++)
+                                            {
+                                                if ((*enumValues)[e] == paramValue)
+                                                {
+                                                    param->SetValue((float)e);
+
+                                                    gotEnum = true;
+
+                                                    break;
+                                                }
                                             }
                                         }
 
@@ -1167,6 +1187,37 @@ std::string PluginProcessor::HandleCommand(std::string const& line)
                     component->HandleCommand(commandWords);
                 }
             }
+        }
+        else if (commandWords[0] == "SetInputLevelDBu")
+        {
+            // Level (dBu) at the audio interface input that gives 0 dBFS. Used for NAM input calibration.
+            if (commandWords.size() > 1)
+            {
+                StompBox::AudioInputLevelDBu = (float)atof(commandWords[1].c_str());
+            }
+        }
+        else if (commandWords[0] == "RescanFiles")
+        {
+            // Re-read file lists (models, impulse responses) of every loaded plugin
+            pluginFactory.RescanFiles();
+        }
+        else if (commandWords[0] == "Status")
+        {
+            // One-line status for remote interfaces: DSP load (max since last Status, 0-1), xrun count,
+            // preset loading flag and tuner pitch (Hz, -1 if the tuner is off)
+            float pitch = -1;
+
+            if ((tuner != nullptr) && tuner->Enabled && (tuner->GetParameter("Pitch") != nullptr))
+                pitch = tuner->GetParameter("Pitch")->GetValue();
+
+            std::string status = "Status DSP " + std::to_string(statusMaxDSPLoad) +
+                " Xruns " + std::to_string(xrunCount.load()) +
+                " Loading " + (IsPresetLoading() ? "1" : "0") +
+                " Pitch " + std::to_string(pitch) + "\r\n";
+
+            statusMaxDSPLoad = 0;
+
+            SendClientMessage(status);
         }
         else if (commandWords[0] == "PluginOutputOn")
         {
@@ -1521,14 +1572,14 @@ bool PluginProcessor::LoadCommandsFromFile(std::filesystem::path filePath)
 
     while (std::getline(inFile, line))
     {
-        if (line[line.size() - 1] == '\r')
-        {
-            HandleCommand(line.substr(0, line.size() - 1));
-        }
-        else
-        {
-            HandleCommand(line);
-        }
+        if (!line.empty() && (line[line.size() - 1] == '\r'))
+            line.resize(line.size() - 1);
+
+        // Skip empty lines and comments
+        if (line.empty() || (line[0] == '#'))
+            continue;
+
+        HandleCommand(line);
     }
 
     return true;

@@ -18,13 +18,18 @@
 
 #include "NeuralAudio/NeuralModel.h"
 
+// Capture levels read from the model metadata (NAN when the model doesn't say)
+struct NAMModelLevels
+{
+	NeuralAudio::NeuralModel* Model = nullptr;
+	float InputDBu = NAN;
+	float OutputDBu = NAN;
+};
+
 class NAMLoader : public FileLoader<NeuralAudio::NeuralModel>
 {
 protected:
-	NeuralAudio::NeuralModel* LoadFromFile(const std::filesystem::path& loadPath)
-	{
-		return modelLoader.CreateFromFile(loadPath);
-	}
+	NeuralAudio::NeuralModel* LoadFromFile(const std::filesystem::path& loadPath);
 
 public:
 	NAMLoader(const FileType& fileType) :
@@ -32,8 +37,23 @@ public:
 	{
 	}
 
+	// Allocation-free lookup, safe to call from the audio thread
+	NAMModelLevels GetLevels(NeuralAudio::NeuralModel* model) const;
+
 private:
 	NeuralAudio::NeuralModelLoader modelLoader;
+
+	// Levels of the last few loaded models. Written when a model is loaded (before it is handed
+	// to the audio thread), read by the audio thread when the model changes.
+	static const int NumLevelSlots = 4;
+	NAMModelLevels levelSlots[NumLevelSlots];
+	int nextLevelSlot = 0;
+};
+
+enum
+{
+	NAM_OUTPUT_NORMALIZED,
+	NAM_OUTPUT_CALIBRATED
 };
 
 class NAM : public StompBox
@@ -44,8 +64,11 @@ private:
 	double prevDCOutput = 0;
 	float qualityScale = 1.0f;
 	float currentQualityScale = 1.0f;
+	float outputMode = NAM_OUTPUT_NORMALIZED;
 	FileType fileType;
 	NAMLoader namLoader;
+	NeuralAudio::NeuralModel* levelsModel = nullptr;
+	NAMModelLevels modelLevels;
 
 public:
 
@@ -53,5 +76,6 @@ public:
 	virtual ~NAM() {}
 	virtual void init(int samplingFreq) override;
 	void SetParameterValue(StompBoxParameter& parameter, float value) override;
+	bool RescanFiles() override;
 	virtual void compute(int count, float* input, float* output) override;
 };
