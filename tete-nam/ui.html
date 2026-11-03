@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Tête NAM</title>
+<style>
+:root{
+  --fond:#111317;--barre:#16191e;--carte:#181b21;--carte2:#20242b;--trait:#262a31;--trait2:#3a3f48;
+  --texte:#e8e8ea;--doux:#8a8f99;--accent:#ffb547;--ok:#7bd88f;--moyen:#e0a800;--mal:#ff6b6b;
+  --dyn:#1f4fa8;--drive:#b0552a;--nam1:#7a2c1d;--nam2:#43160e;--filtre:#7d6d1c;--mod:#6b3fa0;--temps:#245a7a;--util:#4a505a;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--fond)}
+body{color:var(--texte);font:15px/1.3 system-ui,"DejaVu Sans",Arial,sans-serif;display:flex;flex-direction:column;
+  overflow:hidden;user-select:none;-webkit-user-select:none;max-width:1200px;margin:0 auto}
+body.ecran{cursor:none}
+button{font:inherit;color:inherit;background:var(--carte2);border:1px solid var(--trait2);border-radius:10px;padding:8px 12px;cursor:pointer;touch-action:manipulation}
+button:active{filter:brightness(1.3)}
+button.prim{background:var(--accent);color:#111;border-color:var(--accent);font-weight:700}
+button.danger{color:var(--mal)}
+button:disabled{opacity:.4}
+
+/* Barre du haut */
+header{flex:0 0 auto;height:60px;display:flex;align-items:center;gap:8px;padding:0 10px;border-bottom:1px solid var(--trait);background:var(--barre)}
+header .fleche{width:44px;height:44px;padding:0;font-size:18px}
+#presetBtn{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:none;text-align:left;padding:4px 6px}
+#num{font-size:28px;font-weight:700;color:var(--accent);min-width:44px;text-align:center}
+#pnom{font-size:21px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#pinfo{display:block;font-size:12px;color:var(--doux);font-weight:400}
+#saveBtn.modif{border-color:var(--accent);color:var(--accent)}
+#tunerBtn{font-size:18px;width:44px;height:44px;padding:0}
+#statBtn{background:none;border:none;text-align:right;font-size:12px;color:var(--doux);line-height:1.45;padding:2px 4px;white-space:nowrap}
+#statBtn b{font-weight:700}
+
+/* Chaîne */
+#chaineZone{flex:0 0 auto;position:relative;padding:8px 0 4px}
+#rangee{display:flex;align-items:center;gap:12px;overflow-x:hidden;padding:18px 14px 12px;touch-action:none;position:relative;scrollbar-width:none}
+#rangee::-webkit-scrollbar{display:none}
+.io{flex:0 0 auto;width:36px;height:36px;border-radius:50%;background:var(--carte2);border:2px solid #4a505a;font-size:10px;display:flex;align-items:center;justify-content:center;color:#aaa;position:relative;z-index:1}
+.fil{position:absolute;left:30px;height:3px;background:var(--trait2);top:calc(50% + 3px);z-index:0}
+.blk{flex:0 0 auto;width:96px;height:92px;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;position:relative;border:2px solid transparent;z-index:1;text-align:center;padding:4px;color:#fff;transition:transform .15s}
+.blk .ic{font-size:22px;line-height:1;margin-bottom:5px}
+.blk .st{font-size:11px;font-weight:400;opacity:.9;margin-top:3px;max-width:88px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk.off{background:#22252b!important;color:#5d626b}
+.blk.sel{border-color:#fff;box-shadow:0 0 0 4px rgba(255,181,71,.55)}
+.blk.glisse{z-index:5;transition:none;box-shadow:0 10px 28px rgba(0,0,0,.6),0 0 0 4px rgba(255,181,71,.8);opacity:.95}
+.blk.vide{outline:2px dashed var(--mal);outline-offset:2px}
+.cat-dyn{background:var(--dyn)}.cat-drive{background:var(--drive)}.cat-nam{background:linear-gradient(160deg,var(--nam1),var(--nam2))}
+.cat-filtre{background:var(--filtre)}.cat-mod{background:var(--mod)}.cat-temps{background:var(--temps)}.cat-util{background:var(--util)}
+.plus{flex:0 0 auto;width:56px;height:56px;border-radius:50%;font-size:28px;padding:0;z-index:1;border:2px dashed var(--trait2);background:var(--fond);color:var(--doux)}
+#aide{text-align:center;color:var(--doux);font-size:11px;height:14px}
+
+/* Réglages du bloc */
+#panneau{flex:1 1 auto;min-height:0;margin:6px 10px 10px;background:var(--carte);border:1px solid var(--trait);border-radius:14px;padding:10px 14px;display:flex;flex-direction:column}
+#ptete{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+#ptitre{font-size:16px;font-weight:700;margin-right:auto;display:flex;align-items:center;gap:8px;min-width:0}
+#ptitre .mod{font-weight:400;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seg{display:inline-flex;border:1px solid var(--trait2);border-radius:10px;overflow:hidden}
+.seg button{border:none;border-radius:0;background:var(--carte2);padding:7px 10px;font-size:13px}
+.seg button.on{background:var(--accent);color:#111;font-weight:700}
+.bascule.on{background:var(--ok);color:#111;border-color:var(--ok);font-weight:700}
+#boutons{flex:1;display:flex;flex-wrap:wrap;align-content:center;justify-content:space-around;gap:6px 4px;overflow-y:auto}
+.k{width:112px;text-align:center;touch-action:none;padding:2px 0}
+.k svg{width:82px;height:82px;display:block;margin:0 auto 2px}
+.k .val{font-size:15px;font-weight:700}
+.k .lib{font-size:12px;color:#cfd2d8}
+.k.av .lib{color:var(--doux)}
+.k.actif svg circle.fondk{stroke:#fff}
+.inter{width:112px;text-align:center}
+.inter button{min-width:80px}
+.inter .lib{font-size:12px;color:#cfd2d8;margin-top:6px}
+.videmsg{margin:auto;color:var(--doux);text-align:center;font-size:15px;line-height:1.6}
+
+/* Feuilles (fenêtres) */
+#voile{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;z-index:20}
+#feuille{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(760px,calc(100vw - 20px));max-height:calc(100vh - 20px);
+  background:var(--carte);border:1px solid var(--trait2);border-radius:16px;display:none;flex-direction:column;z-index:21;overflow:hidden}
+#feuille.ouverte,#voile.ouvert{display:flex}
+#ftete{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--trait)}
+#ftitre{flex:1;font-weight:700;font-size:17px}
+#fcorps{padding:12px 14px;overflow-y:auto;touch-action:pan-y}
+.liste{display:flex;flex-direction:column;gap:6px}
+.liste .ligne{display:flex;gap:8px;align-items:center}
+.liste .ligne > button:first-child{flex:1;text-align:left;padding:12px 14px;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.liste button.courant{border-color:var(--accent);color:var(--accent);font-weight:700}
+.grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin:6px 0 14px}
+.grille button{height:62px;border:none;color:#fff;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.grille button span{font-size:20px}
+.cattitre{color:var(--doux);font-size:13px;margin-top:4px}
+.rangs{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 14px}
+.etiq{color:var(--doux);font-size:13px;margin-top:10px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stats div{background:var(--carte2);border-radius:10px;padding:8px}
+.stats small{display:block;color:var(--doux);font-size:12px}
+.stats b{font-size:20px}
+canvas{width:100%;height:70px;display:block;margin-top:8px}
+.champ{width:100%;font:inherit;font-size:18px;padding:10px;background:var(--carte2);color:var(--texte);border:1px solid var(--trait2);border-radius:10px}
+.clavier{display:flex;flex-direction:column;gap:5px;margin-top:10px}
+.clavier div{display:flex;gap:5px;justify-content:center}
+.clavier button{flex:1;max-width:62px;height:44px;padding:0;font-size:17px}
+.clavier button.large{max-width:220px;flex:4}
+.clavier button.moyen{max-width:110px;flex:2}
+.boutonsfin{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.pied{color:var(--doux);font-size:12px;margin-top:12px;white-space:pre-line}
+
+/* Accordeur */
+#accord{position:fixed;inset:0;background:rgba(10,11,14,.97);z-index:30;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+#accord.ouvert{display:flex}
+#anote{font-size:120px;font-weight:800;line-height:1}
+#anote small{font-size:40px;color:var(--doux)}
+#abarre{width:min(560px,90vw);height:16px;border-radius:8px;background:var(--carte2);position:relative}
+#abarre::after{content:"";position:absolute;left:50%;top:-6px;bottom:-6px;width:2px;background:var(--doux)}
+#aindic{position:absolute;top:-8px;width:12px;height:32px;border-radius:6px;background:var(--accent);left:50%;transform:translateX(-50%);transition:left .12s}
+#ahz{color:var(--doux);font-size:16px}
+
+#message{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);background:#3a1d1d;color:#ffd6d6;border:1px solid #7a3434;padding:10px 16px;border-radius:12px;
+  z-index:40;display:none;max-width:90vw;font-size:14px}
+#message.info{background:#1d2a3a;color:#d6e6ff;border-color:#34507a}
+#bandeau{display:none;background:#3a1d1d;color:#ffd6d6;text-align:center;font-size:13px;padding:4px}
+#bandeau.ouvert{display:block}
+
+@media (max-width:620px){
+  header{height:auto;flex-wrap:wrap;padding:6px 8px;gap:6px}
+  #presetBtn{order:1;flex:1 1 60%}
+  #num{font-size:22px;min-width:34px}#pnom{font-size:17px}
+  header .fleche{width:40px;height:40px}
+  #statBtn{order:2}
+  #rangee{overflow-x:auto}
+  .k{width:96px}.k svg{width:70px;height:70px}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  body{overflow:auto}
+  #panneau{min-height:260px}
+  #boutons{align-content:flex-start;padding-top:14px}
+}
+</style></head><body>
+<div id="bandeau"></div>
+<header>
+  <button class="fleche" id="prec" aria-label="Preset précédent">◀</button>
+  <button id="presetBtn"><span id="num">–</span><span style="min-width:0"><span id="pnom">…</span><span id="pinfo"></span></span></button>
+  <button class="fleche" id="suiv" aria-label="Preset suivant">▶</button>
+  <button id="saveBtn">Enregistrer</button>
+  <button id="tunerBtn" aria-label="Accordeur">♪</button>
+  <button id="statBtn"><span id="sdsp">DSP –</span><br><span id="stemp"></span></button>
+</header>
+<div id="chaineZone"><div id="rangee"></div><div id="aide"></div></div>
+<section id="panneau"><div class="videmsg">Connexion à la tête…</div></section>
+
+<div id="voile"></div>
+<div id="feuille"><div id="ftete"><div id="ftitre"></div><button id="ffermer">Fermer</button></div><div id="fcorps"></div></div>
+<div id="accord"><div id="anote">–</div><div id="abarre"><div id="aindic"></div></div><div id="ahz">Jouez une corde</div>
+  <button id="afermer" style="margin-top:24px;padding:12px 30px;font-size:17px">Fermer l'accordeur</button></div>
+<div id="message"></div>
+<input type="file" id="fichiers" accept=".nam" multiple hidden>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const ECRAN = new URLSearchParams(location.search).has("ecran");
+if (ECRAN) document.body.classList.add("ecran");
+const BLE = () => typeof window.teteTransport === "function";
+
+/* Tous les appels au serveur passent par ici. Dans l'appli Android,
+   window.teteTransport(chemin, corps) les transmet en Bluetooth. */
+async function api(chemin, corps) {
+  if (BLE()) return window.teteTransport(chemin, corps === undefined ? null : corps);
+  const o = corps === undefined ? {} :
+    {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(corps)};
+  const r = await fetch(chemin, o);
+  return r.json();
+}
+
+let E = null, T = null, C = null;      // état, tout, config
+let sel = null;                        // bloc sélectionné
+let occupe = 0;                        // > 0 : l'utilisateur manipule (pas de redessin)
+let aRedessiner = false;
+const locales = {};                    // valeurs changées ici, prioritaires un moment
+
+const echap = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function message(txt, info) {
+  const m = $("message"); m.textContent = txt; m.className = info ? "info" : "";
+  m.style.display = "block"; clearTimeout(message.t);
+  message.t = setTimeout(() => m.style.display = "none", info ? 2500 : 5000);
+}
+async function action(chemin, corps) {
+  try {
+    const r = await api(chemin, corps);
+    if (!r || r.ok === false) { message((r && r.erreur) || "Erreur"); return null; }
+    return r;
+  } catch (e) { message("Pas de réponse de la tête"); return null; }
+}
+
+/* ---------- Formats ---------- */
+function decimales(f) { const m = /\{0:0\.?(0*)\}/.exec(f || ""); return m ? m[1].length : 2; }
+function unite(f) {
+  const u = (f || "").replace(/\{[^}]*\}/, "").trim();
+  return ({hz: " Hz", db: " dB", dB: " dB", ms: " ms"})[u] ?? (u ? " " + u : "");
+}
+function fmt(p, v) {
+  if (p.type === "liste") { const i = p.valeurs.indexOf(v); return i >= 0 ? p.libelles[i] : v; }
+  if (p.type === "fichier") return v || "–";
+  if (p.type === "interrupteur") return (+v) ? "Oui" : "Non";
+  const n = +v; return (Number.isFinite(n) ? n.toFixed(p.type === "entier" ? 0 : decimales(p.format)) : "–") + unite(p.format);
+}
+const typeDe = id => id.split("_")[0];
+const cfgType = t => C && C.types[t];
+function valeur(b, nom) {
+  const l = locales[b.id + "|" + nom];
+  if (l && Date.now() - l.t < 2000) return l.v;
+  return b.valeurs[nom];
+}
+function nomBloc(b) {
+  const c = cfgType(b.type); let n = c ? c.court : b.type;
+  const num = b.id.split("_")[1]; if (num) n += " " + num;
+  return n;
+}
+function resume(b) {
+  const c = cfgType(b.type); if (!c) return "";
+  if (b.type === "NAM") return valeur(b, "Model") || "aucun modèle";
+  if (!b.actif) return "bypass";
+  const p = c.params.find(p => !p.avance && p.type === "bouton");
+  return p ? fmt(p, valeur(b, p.nom)) : "";
+}
+
+/* ---------- Barre du haut ---------- */
+function dessinerHaut() {
+  if (!E) return;
+  $("num").textContent = E.numero ?? "–";
+  $("pnom").textContent = E.preset || "Sans nom";
+  $("pinfo").textContent = E.chargement ? "chargement…" : (E.modifie ? "modifié ●" : (T ? T.presets.length + " presets" : ""));
+  $("saveBtn").classList.toggle("modif", !!E.modifie);
+  const d = E.dsp;
+  $("sdsp").innerHTML = "DSP <b style='color:" + (d == null ? "var(--doux)" : d < 70 ? "var(--ok)" : d < 85 ? "var(--moyen)" : "var(--mal)") + "'>" +
+    (d == null ? "–" : Math.round(d) + " %") + "</b>" + (E.xruns ? " · <b style='color:var(--mal)'>" + E.xruns + " xr</b>" : "");
+  $("stemp").textContent = E.temp == null ? "" : Math.round(E.temp) + " °C";
+  const b = $("bandeau");
+  b.classList.toggle("ouvert", !E.moteur);
+  b.textContent = E.moteur ? "" : "Le moteur audio ne répond pas (redémarrage en cours ?)";
+  dessinerAccordeur();
+}
+
+/* ---------- Chaîne ---------- */
+function dessinerChaine() {
+  const r = $("rangee");
+  if (!T || !C) return;
+  const sc = r.scrollLeft;
+  let h = '<div class="io">IN</div>';
+  for (const b of T.chaine) {
+    const c = cfgType(b.type) || {categorie: "util", icone: "?"};
+    const vide = b.type === "NAM" && !valeur(b, "Model");
+    h += `<div class="blk cat-${c.categorie}${b.actif ? "" : " off"}${b.id === sel ? " sel" : ""}${vide ? " vide" : ""}" data-id="${echap(b.id)}">
+      <div class="ic">${c.icone}</div>${echap(nomBloc(b))}<div class="st">${echap(resume(b))}</div></div>`;
+  }
+  h += '<button class="plus" id="ajout" aria-label="Ajouter un bloc">+</button><div class="io">OUT</div><div class="fil"></div>';
+  r.innerHTML = h;
+  const fil = r.querySelector(".fil");
+  fil.style.width = Math.max(0, r.scrollWidth - 60) + "px";
+  r.scrollLeft = sc;
+  $("aide").textContent = T.chaine.length ? "Toucher : régler · appui long puis glisser : déplacer · + : ajouter" : "";
+}
+
+/* Toucher = sélectionner ; glisser = faire défiler ; appui long = déplacer */
+(function gestesChaine() {
+  const r = $("rangee");
+  let g = null;
+  r.addEventListener("pointerdown", ev => {
+    const blk = ev.target.closest(".blk");
+    g = {x: ev.clientX, y: ev.clientY, sc: r.scrollLeft, blk, mode: "?", id: ev.pointerId};
+    occupe++;
+    if (blk) g.timer = setTimeout(() => commencerGlisse(blk), 380);
+  });
+  r.addEventListener("pointermove", ev => {
+    if (!g || ev.pointerId !== g.id) return;
+    const dx = ev.clientX - g.x;
+    if (g.mode === "?" && Math.abs(dx) > 8) { g.mode = "defile"; clearTimeout(g.timer); r.setPointerCapture(ev.pointerId); }
+    if (g.mode === "defile") r.scrollLeft = g.sc - dx;
+    if (g.mode === "glisse") deplacerGlisse(ev.clientX);
+  });
+  const fin = ev => {
+    if (!g || ev.pointerId !== g.id) return;
+    clearTimeout(g.timer);
+    const m = g.mode, blk = g.blk; g = null; occupe = Math.max(0, occupe - 1);
+    if (m === "glisse") finirGlisse(ev.type === "pointercancel");
+    else if (m === "?" && ev.type === "pointerup") {
+      if (blk) { choisir(blk.dataset.id); }
+      else if (ev.target.closest("#ajout")) feuilleAjout();
+    }
+    if (!occupe && aRedessiner) redessiner();
+  };
+  r.addEventListener("pointerup", fin);
+  r.addEventListener("pointercancel", fin);
+
+  let gl = null;
+  function commencerGlisse(blk) {
+    if (!g) return;
+    g.mode = "glisse"; r.setPointerCapture(g.id);
+    const blocs = [...r.querySelectorAll(".blk")];
+    gl = {blk, blocs, depart: blocs.indexOf(blk), x0: g.x, centres: blocs.map(b => { const q = b.getBoundingClientRect(); return q.left + q.width / 2; }),
+          largeur: blk.getBoundingClientRect().width + 12, cible: blocs.indexOf(blk)};
+    blk.classList.add("glisse");
+    if (navigator.vibrate) navigator.vibrate(20);
+  }
+  function deplacerGlisse(x) {
+    if (!gl) return;
+    const dx = x - gl.x0;
+    gl.blk.style.transform = `translateX(${dx}px) scale(1.05)`;
+    const pos = gl.centres[gl.depart] + dx;
+    let cible = 0;
+    gl.centres.forEach((c, i) => { if (i !== gl.depart && pos > c) cible++; });
+    gl.cible = cible;
+    gl.blocs.forEach((b, i) => {
+      if (i === gl.depart) return;
+      let d = 0;
+      if (gl.depart < cible && i > gl.depart && i <= cible) d = -gl.largeur;
+      if (gl.depart > cible && i < gl.depart && i >= cible) d = gl.largeur;
+      b.style.transform = d ? `translateX(${d}px)` : "";
+    });
+    const q = r.getBoundingClientRect();     // défilement près des bords
+    if (x < q.left + 40) r.scrollLeft -= 8; else if (x > q.right - 40) r.scrollLeft += 8;
+  }
+  async function finirGlisse(annule) {
+    if (!gl) return;
+    const {depart, cible} = gl; gl = null;
+    if (annule || depart === cible) { redessiner(); return; }
+    const ordre = T.chaine.map(b => b.id);
+    const [x] = ordre.splice(depart, 1); ordre.splice(cible, 0, x);
+    const [b] = T.chaine.splice(depart, 1); T.chaine.splice(cible, 0, b);
+    sel = x; redessiner();
+    await action("/api/ordre", {ordre});
+    maj(true);
+  }
+})();
+
+function choisir(id) { sel = id; dessinerChaine(); dessinerPanneau(); }
+
+/* ---------- Panneau de réglages ---------- */
+function blocSel() { return T && T.chaine.find(b => b.id === sel); }
+
+function dessinerPanneau() {
+  const p = $("panneau");
+  if (!T || !C) return;
+  const b = blocSel();
+  if (!b) {
+    p.innerHTML = `<div class="videmsg">${T.chaine.length ? "Touchez un bloc pour le régler" :
+      "La chaîne est vide.<br>Touchez <b>+</b> pour ajouter un effet ou un NAM."}</div>`;
+    return;
+  }
+  const c = cfgType(b.type);
+  if (!c) { p.innerHTML = `<div class="videmsg">Bloc ${echap(b.id)} non géré par l'interface</div>`; return; }
+  const modele = c.params.find(q => q.type === "fichier");
+  const listes = c.params.filter(q => q.type === "liste");
+  let h = `<div id="ptete"><div id="ptitre">${echap(c.nom)}${b.id.includes("_") ? " " + echap(b.id.split("_")[1]) : ""}`;
+  if (modele) h += `<button class="mod" id="choixModele">${echap(valeur(b, modele.nom) || "Choisir un modèle…")} ▾</button>`;
+  h += `</div>`;
+  for (const q of listes) {
+    h += `<span class="seg" data-liste="${echap(q.nom)}">` + q.valeurs.map((v, i) =>
+      `<button class="${valeur(b, q.nom) === v ? "on" : ""}" data-v="${echap(v)}">${echap(q.libelles[i])}</button>`).join("") + `</span>`;
+  }
+  h += `<button class="bascule ${b.actif ? "on" : ""}" id="bypass">${b.actif ? "Activé" : "Bypass"}</button>
+        <button class="danger" id="retirer" aria-label="Retirer le bloc">Retirer</button></div><div id="boutons">`;
+  for (const q of c.params) {
+    if (q.type === "bouton" || q.type === "entier") h += bouton(b, q);
+    else if (q.type === "interrupteur") {
+      const on = +valeur(b, q.nom) ? 1 : 0;
+      h += `<div class="inter"><button class="bascule ${on ? "on" : ""}" data-inter="${echap(q.nom)}">${on ? "Oui" : "Non"}</button><div class="lib">${echap(q.libelle)}</div></div>`;
+    }
+  }
+  h += `</div>`;
+  p.innerHTML = h;
+  p.querySelector("#bypass").onclick = () => basculer(b);
+  p.querySelector("#retirer").onclick = () => retirer(b);
+  if (modele) p.querySelector("#choixModele").onclick = () => feuilleModele(b, modele);
+  p.querySelectorAll("[data-liste]").forEach(s => s.querySelectorAll("button").forEach(bt =>
+    bt.onclick = () => { envoyerParam(b, s.dataset.liste, bt.dataset.v, true); dessinerPanneau(); dessinerChaine(); }));
+  p.querySelectorAll("[data-inter]").forEach(bt => bt.onclick = () => {
+    envoyerParam(b, bt.dataset.inter, (+valeur(b, bt.dataset.inter)) ? 0 : 1, true); dessinerPanneau();
+  });
+  p.querySelectorAll(".k").forEach(k => gesteBouton(k, b, c.params.find(q => q.nom === k.dataset.nom)));
+}
+
+function arc(frac) {
+  // Arc de 270° (de -225° à +45°), en SVG
+  const R = 34, cx = 41, cy = 41, a0 = -225 * Math.PI / 180, a1 = a0 + Math.max(0.001, frac) * 1.5 * Math.PI;
+  const p = a => [cx + R * Math.cos(a), cy + R * Math.sin(a)];
+  const [x0, y0] = p(a0), [x1, y1] = p(a1), [xe, ye] = p(a0 + 1.5 * Math.PI);
+  const grand = (a1 - a0) > Math.PI ? 1 : 0;
+  return `<path d="M${x0} ${y0} A${R} ${R} 0 1 1 ${xe} ${ye}" stroke="#2c3038" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <path d="M${x0} ${y0} A${R} ${R} 0 ${grand} 1 ${x1} ${y1}" stroke="var(--accent)" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <circle class="fondk" cx="41" cy="41" r="25" fill="var(--carte2)" stroke="transparent" stroke-width="2"/>`;
+}
+function fraction(q, v) { return q.max > q.min ? (Math.min(q.max, Math.max(q.min, +v)) - q.min) / (q.max - q.min) : 0; }
+function bouton(b, q) {
+  const v = valeur(b, q.nom);
+  return `<div class="k${q.avance ? " av" : ""}" data-nom="${echap(q.nom)}" title="${echap(q.description)}">
+    <svg viewBox="0 0 82 82">${arc(fraction(q, v))}</svg><div class="val">${echap(fmt(q, v))}</div><div class="lib">${echap(q.libelle)}</div></div>`;
+}
+function majBouton(k, q, v) {
+  k.querySelector("svg").innerHTML = arc(fraction(q, v));
+  k.querySelector(".val").textContent = fmt(q, v);
+}
+/* Glisser vers le haut ou la droite = augmenter ; double toucher = valeur par défaut */
+function gesteBouton(k, b, q) {
+  let g = null, dernierTap = 0;
+  k.addEventListener("pointerdown", ev => {
+    k.setPointerCapture(ev.pointerId);
+    g = {x: ev.clientX, y: ev.clientY, v0: +valeur(b, q.nom), bouge: false};
+    occupe++; k.classList.add("actif");
+  });
+  k.addEventListener("pointermove", ev => {
+    if (!g) return;
+    const d = (ev.clientX - g.x) - (ev.clientY - g.y);
+    if (Math.abs(d) > 3) g.bouge = true;
+    if (!g.bouge) return;
+    let v = g.v0 + d / 220 * (q.max - q.min);
+    v = Math.min(q.max, Math.max(q.min, v));
+    if (q.type === "entier") v = Math.round(v);
+    majBouton(k, q, v);
+    envoyerParam(b, q.nom, v);
+  });
+  const fin = ev => {
+    if (!g) return;
+    const bouge = g.bouge; g = null; occupe = Math.max(0, occupe - 1); k.classList.remove("actif");
+    if (!bouge && ev.type === "pointerup") {
+      const t = Date.now();
+      if (t - dernierTap < 350) { majBouton(k, q, q.defaut); envoyerParam(b, q.nom, q.defaut, true); }
+      dernierTap = t;
+    }
+    dessinerChaine();
+    if (!occupe && aRedessiner) redessiner();
+  };
+  k.addEventListener("pointerup", fin);
+  k.addEventListener("pointercancel", fin);
+}
+
+/* Envoi des réglages : au plus un toutes les 100 ms (250 ms en Bluetooth) par réglage */
+const envois = {};
+function envoyerParam(b, nom, v, immediat) {
+  const cle = b.id + "|" + nom;
+  locales[cle] = {v, t: Date.now()};
+  b.valeurs[nom] = v;
+  const e = envois[cle] || (envois[cle] = {});
+  e.v = v;
+  if (e.timer && !immediat) { e.attente = true; return; }
+  const partir = async () => {
+    e.attente = false;
+    await action("/api/param", {id: b.id, nom, valeur: e.v});
+    locales[cle] = {v: e.v, t: Date.now()};
+  };
+  partir();
+  clearTimeout(e.timer);
+  e.timer = setTimeout(function suite() {
+    if (e.attente) { partir(); e.timer = setTimeout(suite, BLE() ? 250 : 100); } else e.timer = null;
+  }, BLE() ? 250 : 100);
+}
+
+async function basculer(b) {
+  b.actif = !b.actif; dessinerChaine(); dessinerPanneau();
+  await action("/api/actif", {id: b.id, actif: b.actif});
+  maj(true);
+}
+function retirer(b) {
+  confirmer(`Retirer « ${nomBloc(b)} » de la chaîne ?`, "Retirer", async () => {
+    const i = T.chaine.indexOf(b);
+    T.chaine.splice(i, 1);
+    sel = T.chaine[Math.min(i, T.chaine.length - 1)]?.id || null;
+    redessiner();
+    await action("/api/retirer", {id: b.id});
+    maj(true);
+  });
+}
+
+/* ---------- Feuilles ---------- */
+function ouvrir(titre, html) {
+  $("ftitre").textContent = titre; $("fcorps").innerHTML = html;
+  $("feuille").classList.add("ouverte"); $("voile").classList.add("ouvert");
+  $("fcorps").scrollTop = 0;
+  return $("fcorps");
+}
+function fermer() { $("feuille").classList.remove("ouverte"); $("voile").classList.remove("ouvert"); arreterGraphe(); }
+$("ffermer").onclick = fermer; $("voile").onclick = fermer;
+
+function confirmer(texte, bouton, si) {
+  const f = ouvrir("Confirmer", `<div style="font-size:16px">${echap(texte)}</div>
+    <div class="boutonsfin"><button id="cnon">Annuler</button><button class="prim" id="coui">${echap(bouton)}</button></div>`);
+  f.querySelector("#cnon").onclick = fermer;
+  f.querySelector("#coui").onclick = () => { fermer(); si(); };
+}
+
+const RANGEES = ["azertyuiop", "qsdfghjklm", "wxcvbn-_'", "1234567890"];
+function demanderNom(titre, defaut, si) {
+  let h = `<input class="champ" id="nchamp" maxlength="40" value="${echap(defaut)}" ${ECRAN ? "readonly" : ""} autocomplete="off">`;
+  if (ECRAN) {
+    h += `<div class="clavier">` + RANGEES.map(r => `<div>${[...r].map(c => `<button data-c="${echap(c)}">${echap(c)}</button>`).join("")}</div>`).join("") +
+      `<div><button class="moyen" data-c="MAJ">⇧</button><button class="large" data-c=" ">espace</button><button class="moyen" data-c="EFF">⌫</button></div></div>`;
+  }
+  h += `<div class="boutonsfin"><button id="nnon">Annuler</button><button class="prim" id="noui">Enregistrer</button></div>`;
+  const f = ouvrir(titre, h), champ = f.querySelector("#nchamp");
+  let maj_ = true;
+  const touches = () => f.querySelectorAll(".clavier [data-c]").forEach(b => {
+    const c = b.dataset.c; if (c.length === 1) b.textContent = maj_ ? c.toUpperCase() : c; });
+  touches();
+  f.querySelectorAll(".clavier [data-c]").forEach(b => b.onclick = () => {
+    const c = b.dataset.c;
+    if (c === "MAJ") { maj_ = !maj_; touches(); return; }
+    if (c === "EFF") champ.value = champ.value.slice(0, -1);
+    else if (champ.value.length < 40) { champ.value += maj_ ? c.toUpperCase() : c; if (maj_) { maj_ = false; touches(); } }
+  });
+  if (!ECRAN) setTimeout(() => champ.focus(), 50);
+  f.querySelector("#nnon").onclick = fermer;
+  const ok = () => { const v = champ.value.trim(); if (!v) return message("Donnez un nom"); fermer(); si(v); };
+  f.querySelector("#noui").onclick = ok;
+  champ.onkeydown = ev => { if (ev.key === "Enter") ok(); };
+}
+
+function feuilleAjout() {
+  if (!C) return;
+  let h = "";
+  for (const [cat, titre] of C.categories) {
+    const ts = C.ordre.filter(t => C.types[t] && C.types[t].categorie === cat);
+    if (!ts.length) continue;
+    h += `<div class="cattitre">${echap(titre)}</div><div class="grille">` + ts.map(t =>
+      `<button class="cat-${cat}" data-t="${echap(t)}"><span>${C.types[t].icone}</span>${echap(C.types[t].nom)}</button>`).join("") + `</div>`;
+  }
+  const b = blocSel();
+  const f = ouvrir(b ? `Ajouter après « ${nomBloc(b)} »` : "Ajouter un bloc", h);
+  f.querySelectorAll("[data-t]").forEach(bt => bt.onclick = async () => {
+    fermer();
+    const r = await action("/api/ajouter", {type: bt.dataset.t, apres: sel});
+    if (r) { sel = r.id; await maj(true); }
+  });
+}
+
+function feuilleModele(b, q) {
+  const liste = C.modeles;
+  let h = liste.length ? `<div class="liste">` + liste.map(m =>
+    `<div class="ligne"><button class="${m === valeur(b, q.nom) ? "courant" : ""}" data-m="${echap(m)}">${echap(m)}</button></div>`).join("") + `</div>` :
+    `<div class="videmsg">Aucun modèle .nam sur la tête.</div>`;
+  if (!ECRAN) h += `<div class="boutonsfin"><button id="menvoi">Envoyer des fichiers .nam…</button></div>`;
+  else h += `<div class="pied">Pour ajouter des modèles : depuis un téléphone ou un ordinateur, page de la tête ou appli, bouton « Envoyer des fichiers .nam ».</div>`;
+  const f = ouvrir("Modèle NAM", h);
+  f.querySelectorAll("[data-m]").forEach(bt => bt.onclick = () => {
+    fermer(); envoyerParam(b, q.nom, bt.dataset.m, true); dessinerChaine(); dessinerPanneau();
+  });
+  const env = f.querySelector("#menvoi"); if (env) env.onclick = envoyerFichiers;
+}
+
+function feuillePresets() {
+  if (!T) return;
+  let h = `<div class="rangs"><button id="pnouveau">Nouveau (chaîne vide)</button><button id="psous">Enregistrer sous…</button></div>`;
+  h += T.presets.length ? `<div class="liste">` + T.presets.map((p, i) =>
+    `<div class="ligne"><button class="${p === T.preset ? "courant" : ""}" data-p="${echap(p)}">${i + 1}. ${echap(p)}</button>
+     <button class="danger" data-sup="${echap(p)}" aria-label="Supprimer">✕</button></div>`).join("") + `</div>` :
+    `<div class="videmsg">Aucun preset enregistré pour l'instant.</div>`;
+  const f = ouvrir("Presets", h);
+  f.querySelectorAll("[data-p]").forEach(bt => bt.onclick = () => chargerPreset(bt.dataset.p));
+  f.querySelectorAll("[data-sup]").forEach(bt => bt.onclick = () =>
+    confirmer(`Supprimer le preset « ${bt.dataset.sup} » ?`, "Supprimer", async () => {
+      await action("/api/preset", {action: "supprimer", nom: bt.dataset.sup}); await maj(true); feuillePresets();
+    }));
+  f.querySelector("#pnouveau").onclick = () => {
+    const go = async () => { fermer(); sel = null; await action("/api/preset", {action: "nouveau"}); maj(true); };
+    E && E.modifie ? confirmer("Les changements non enregistrés seront perdus.", "Nouvelle chaîne", go) : go();
+  };
+  f.querySelector("#psous").onclick = () => enregistrerSous();
+}
+async function chargerPreset(nom) {
+  const go = async () => {
+    fermer(); message("Chargement de « " + nom + " »…", true);
+    const r = await action("/api/preset", {action: "charger", nom});
+    if (r) { sel = null; await maj(true); message("« " + nom + " » chargé", true); }
+  };
+  E && E.modifie ? confirmer("Les changements non enregistrés seront perdus.", "Charger « " + nom + " »", go) : go();
+}
+async function pas(sens) {
+  const go = async () => { const r = await action("/api/preset", {action: sens}); if (r) { sel = null; await maj(true); } };
+  E && E.modifie ? confirmer("Les changements non enregistrés seront perdus.", "Changer de preset", go) : go();
+}
+function enregistrerSous() {
+  demanderNom("Nom du preset", T && T.preset ? T.preset : "", async nom => {
+    if (T.presets.includes(nom) && nom !== T.preset)
+      return confirmer(`Remplacer le preset « ${nom} » ?`, "Remplacer", () => sauver(nom));
+    sauver(nom);
+  });
+}
+async function sauver(nom) {
+  const r = await action("/api/preset", {action: "sauver", nom});
+  if (r) { message("Preset « " + r.preset + " » enregistré", true); maj(true); }
+}
+$("prec").onclick = () => pas("precedent");
+$("suiv").onclick = () => pas("suivant");
+$("presetBtn").onclick = feuillePresets;
+$("saveBtn").onclick = () => {
+  if (!T) return;
+  if (!T.preset) return enregistrerSous();
+  const f = ouvrir("Enregistrer", `<div style="font-size:16px">Enregistrer les changements dans « ${echap(T.preset)} » ?</div>
+    <div class="boutonsfin"><button id="snon">Annuler</button><button id="ssous">Enregistrer sous…</button><button class="prim" id="soui">Enregistrer</button></div>`);
+  f.querySelector("#snon").onclick = fermer;
+  f.querySelector("#ssous").onclick = enregistrerSous;
+  f.querySelector("#soui").onclick = () => { fermer(); sauver(T.preset); };
+};
+
+/* ---------- Système ---------- */
+let grapheTimer = null;
+function arreterGraphe() { clearInterval(grapheTimer); grapheTimer = null; }
+async function feuilleSysteme() {
+  if (!T) return;
+  const r = T.reglages;
+  let h = `<div class="stats"><div><small>Charge DSP</small><b id="ydsp">–</b></div><div><small>Xruns</small><b id="yxr">–</b></div>
+    <div><small>Température</small><b id="ytemp">–</b></div><div><small>Throttling</small><b id="ythr" style="font-size:15px">–</b></div></div>
+    <canvas id="ygraphe"></canvas>
+    <div class="etiq">Buffer JACK (× ${r.NPERIODS}) · changer relance l'audio (5 s de silence)</div><div class="rangs">` +
+    T.buffers.map(b => `<button class="${b === r.PERIOD ? "prim" : ""}" data-buf="${b}">${b} · ${(b * r.NPERIODS / r.RATE * 1000).toFixed(1)} ms</button>`).join("") + `</div>
+    <div class="etiq">Calibration d'entrée (dBu pour 0 dBFS, MOTU M4 : 16)</div>
+    <div class="rangs"><button data-cal="-1">−1</button><button data-cal="-0.5">−0.5</button><b id="ycal" style="min-width:90px;text-align:center;font-size:18px">${r.INPUT_DBU} dBu</b>
+      <button data-cal="0.5">+0.5</button><button data-cal="1">+1</button></div>
+    <div class="etiq">Volume général</div>
+    <div class="rangs"><button data-vol="-3">−3</button><button data-vol="-1">−1</button><b id="yvol" style="min-width:90px;text-align:center;font-size:18px">${T.volume} dB</b>
+      <button data-vol="1">+1</button><button data-vol="3">+3</button><button data-vol="0" data-abs="1">0 dB</button></div>`;
+  if (!ECRAN) h += `<div class="etiq">Modèles</div><div class="rangs"><button id="yenvoi">Envoyer des fichiers .nam vers la tête…</button></div>`;
+  h += `<div class="pied" id="ypied">${r.RATE / 1000} kHz · carte ${echap(r.CARD)}</div>`;
+  const f = ouvrir("Système", h);
+  f.querySelectorAll("[data-buf]").forEach(bt => bt.onclick = () => {
+    const t = +bt.dataset.buf;
+    confirmer(`Passer le buffer à ${t} × ${r.NPERIODS} ? L'audio coupe environ 5 secondes.`, "Appliquer", async () => {
+      if (await action("/api/buffer", {taille: t})) message("Redémarrage de l'audio…", true);
+      maj(true);
+    });
+  });
+  let cal = +r.INPUT_DBU, vol = +T.volume;
+  f.querySelectorAll("[data-cal]").forEach(bt => bt.onclick = async () => {
+    cal = Math.round((cal + +bt.dataset.cal) * 10) / 10; $("ycal").textContent = cal + " dBu";
+    await action("/api/calibration", {valeur: cal});
+  });
+  f.querySelectorAll("[data-vol]").forEach(bt => bt.onclick = async () => {
+    vol = bt.dataset.abs ? 0 : Math.max(-40, Math.min(40, vol + +bt.dataset.vol)); $("yvol").textContent = vol + " dB";
+    await action("/api/volume", {valeur: vol});
+  });
+  const env = f.querySelector("#yenvoi"); if (env) env.onclick = envoyerFichiers;
+  const rafr = async () => {
+    try {
+      const s = await api("/api/systeme");
+      if (!$("ydsp")) return arreterGraphe();
+      $("ydsp").textContent = s.dsp == null ? "–" : s.dsp.toFixed(1) + " %";
+      $("yxr").textContent = s.xruns; $("yxr").style.color = s.xruns ? "var(--mal)" : "var(--ok)";
+      $("ytemp").textContent = s.temp == null ? "–" : s.temp.toFixed(0) + " °C";
+      $("ythr").textContent = s.throttled === "0x0" ? "aucun" : s.throttled;
+      $("ythr").style.color = s.throttled === "0x0" ? "var(--ok)" : "var(--mal)";
+      $("ypied").textContent = `${r.RATE / 1000} kHz · carte ${r.CARD} · version ${s.version}`;
+      graphe($("ygraphe"), s.histo);
+    } catch (e) {}
+  };
+  rafr(); arreterGraphe(); grapheTimer = setInterval(rafr, BLE() ? 3000 : 1000);
+}
+function graphe(c, h) {
+  const x = c.getContext("2d"), w = c.width = c.clientWidth * devicePixelRatio, ht = c.height = 70 * devicePixelRatio;
+  x.clearRect(0, 0, w, ht);
+  x.strokeStyle = "#333"; x.beginPath(); [70, 85].forEach(s => { const y = ht - s / 100 * ht; x.moveTo(0, y); x.lineTo(w, y); }); x.stroke();
+  x.strokeStyle = "#ffb547"; x.lineWidth = 2 * devicePixelRatio; x.beginPath();
+  let premier = true;
+  h.forEach((v, i) => { if (v == null) { premier = true; return; } const px = i / 119 * w, py = ht - Math.min(v, 100) / 100 * ht; premier ? x.moveTo(px, py) : x.lineTo(px, py); premier = false; });
+  x.stroke();
+}
+$("statBtn").onclick = feuilleSysteme;
+
+/* ---------- Envoi de modèles ---------- */
+window.teteProgression = txt => message(txt, true);     // appelé par l'appli Android
+async function envoyerFichiers() {
+  if (typeof window.teteEnvoyerFichiers === "function") {     // appli Android
+    try {
+      const res = await window.teteEnvoyerFichiers();
+      if (res && res.length) message(res.map(r => r.ok ? "✓ " + r.nom : "✗ " + r.erreur).join("  "), res.every(r => r.ok));
+    } catch (e) { message("Envoi impossible"); }
+    maj(true); return;
+  }
+  $("fichiers").click();
+}
+$("fichiers").onchange = async () => {
+  const liste = [...$("fichiers").files], res = [];
+  for (const [n, f] of liste.entries()) {
+    message(`Envoi ${n + 1}/${liste.length} : ${f.name}…`, true);
+    try {
+      const r = await (await fetch("/api/envoyer", {method: "POST", body: f, headers: {"X-Nom-Fichier": encodeURIComponent(f.name)}})).json();
+      res.push(r.ok ? "✓ " + r.nom : "✗ " + r.erreur);
+    } catch (e) { res.push("✗ " + f.name); }
+  }
+  message(res.join("  "), res.every(r => r.startsWith("✓")));
+  $("fichiers").value = ""; maj(true);
+};
+
+/* ---------- Accordeur ---------- */
+$("tunerBtn").onclick = async () => { $("accord").classList.add("ouvert"); await action("/api/accordeur", {actif: true}); };
+$("afermer").onclick = async () => { $("accord").classList.remove("ouvert"); await action("/api/accordeur", {actif: false}); };
+function dessinerAccordeur() {
+  const a = E && E.accordeur;
+  if (!$("accord").classList.contains("ouvert")) return;
+  if (!a || a.hz == null) { $("anote").innerHTML = "–"; $("ahz").textContent = "Jouez une corde"; $("aindic").style.left = "50%"; return; }
+  const juste = Math.abs(a.cents) <= 3;
+  $("anote").innerHTML = `${echap(a.note)}<small>${a.octave}</small>`;
+  $("anote").style.color = juste ? "var(--ok)" : "var(--texte)";
+  $("aindic").style.left = (50 + Math.max(-50, Math.min(50, a.cents))) + "%";
+  $("aindic").style.background = juste ? "var(--ok)" : "var(--accent)";
+  $("ahz").textContent = `${a.hz} Hz · ${a.cents > 0 ? "+" : ""}${a.cents} cents`;
+}
+
+/* ---------- Mise à jour ---------- */
+function redessiner() {
+  if (occupe) { aRedessiner = true; return; }
+  aRedessiner = false;
+  if (T && !T.chaine.some(b => b.id === sel)) sel = T.chaine.length ? T.chaine[0].id : null;
+  dessinerHaut(); dessinerChaine(); dessinerPanneau();
+}
+let enCours = false;
+async function maj(forcer) {
+  if (enCours && !forcer) return;
+  enCours = true;
+  try {
+    E = await api("/api/etat");
+    let change = false;
+    if (!C || C.cfg !== E.cfg) { C = await api("/api/config"); change = true; }
+    if (forcer || !T || T.rev !== E.rev) { T = await api("/api/tout"); change = true; }
+    if (change) redessiner(); else dessinerHaut();
+  } catch (e) {
+    $("bandeau").classList.add("ouvert"); $("bandeau").textContent = "Pas de connexion avec la tête…";
+  } finally { enCours = false; }
+}
+/* État redemandé chaque seconde (1,5 s en Bluetooth), plus vite avec l'accordeur */
+function boucleMaj() {
+  const accordeur = $("accord").classList.contains("ouvert");
+  setTimeout(async () => { await maj(); boucleMaj(); }, BLE() ? (accordeur ? 500 : 1500) : (accordeur ? 300 : 1000));
+}
+maj().then(boucleMaj);
+</script></body></html>
