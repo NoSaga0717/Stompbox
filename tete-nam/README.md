@@ -136,6 +136,23 @@ L'appli **Tête NAM** se connecte en Bluetooth Low Energy et affiche **la même 
 
 L'APK est reconstruit automatiquement par GitHub à chaque modification de `tete-nam/android/`. La clé de signature n'est pas dans le dépôt (il est public) : elle est dans deux secrets du dépôt, `TETE_NAM_KEYSTORE` (le fichier de clé en base64) et `TETE_NAM_KEYSTORE_MDP` (son mot de passe), à créer une fois dans *Settings → Secrets and variables → Actions*. Sans eux, l'APK est signé avec une clé jetable et chaque mise à jour demande de désinstaller l'appli.
 
+## 8. Pédalier MIDI
+
+La tête lit toute seule **toutes les entrées MIDI branchées** : la prise **MIDI IN de la MOTU M4**, un câble USB-MIDI, un pédalier USB. Rien à installer ni à régler, un appareil branché à chaud est vu en 2 secondes.
+
+**Test avec le FCB1010 et la M4 :** câble MIDI de la prise **MIDI OUT** du FCB1010 vers la prise **MIDI IN** de la M4. Sur l'écran : **DSP** (en haut à droite) → **Réglages MIDI…**. La M4 doit apparaître dans « Entrées MIDI détectées », et chaque appui sur un pied s'affiche dans « Dernier message reçu » (le mot MIDI clignote aussi en haut à droite).
+
+- **Changer de preset :** chaque pied du FCB1010 envoie un *Program Change*. Program Change 0 charge le preset 1 de la liste, 1 le preset 2, etc. (le numéro affiché en haut de l'écran).
+- **Allumer / éteindre un effet :** toucher le bloc, **MIDI**, **Apprendre** sur « Allumé / éteint », puis appuyer sur le pied. Le FCB1010 d'origine envoie toujours la même valeur : laisser « Chaque appui bascule ». Pour le FCB, régler sur le pied un *Control Change* avec la valeur 127 (une valeur 0 est ignorée).
+- **Pédale d'expression :** même chose sur un bouton (par exemple « Pédale » d'un bloc Wah, ou « Niveau » d'un bloc Volume) puis bouger la pédale : elle fait varier le réglage du minimum au maximum.
+- **Preset suivant / précédent, accordeur :** dans **Réglages MIDI…**, valables pour tous les presets.
+- Les assignations des blocs sont **enregistrées avec le preset** (penser à Enregistrer). Un petit badge `CC 20` sur un bouton montre qu'il est piloté au pied.
+- **Canal MIDI :** « Tous les canaux » par défaut ; à régler si le pédalier pilote aussi d'autres appareils.
+- Assignations rangées dans `~/tete-nam/midi.json`. Journal : `journalctl -u tete-nam-web -f` (branchement et débranchement des entrées).
+- Les entrées MIDI sont ouvertes par la page web : un autre programme (`amidi`, `aseqdump`) ne peut pas les lire en même temps. Pour essayer à la main : `sudo systemctl stop tete-nam-web` puis `python3 /opt/tete-nam/midi.py`.
+
+**Entrée MIDI DIN sur le port série (carte maison) :** `MIDI_UART=/dev/ttyAMA0` dans `/etc/tete-nam.conf`, UART activé dans `/boot/firmware/config.txt` (`dtparam=uart0=on`) et console série retirée de `cmdline.txt`. Lu à 31 250 bauds. Pas encore essayé sur un vrai Pi.
+
 ## Réglages (`/etc/tete-nam.conf`)
 
 La chaîne et les presets ne sont pas dans ce fichier : ils sont dans `~/tete-nam` (presets dans `~/tete-nam/Presets`, état en cours dans `~/tete-nam/en-cours.txt`).
@@ -150,6 +167,7 @@ La chaîne et les presets ne sont pas dans ce fichier : ils sont dans `~/tete-na
 | `VOLUME_DB` | Volume général en sortie |
 | `ECRAN` | `oui` ou `non` : interface sur l'écran de la tête |
 | `ECRAN_ROTATION` | 0, 90, 180 ou 270 (écran monté à l'envers : 180) |
+| `MIDI_UART` | Port série de l'entrée MIDI DIN (vide = aucun ; l'USB et la M4 sont toujours lus) |
 
 Après une modification à la main : `sudo systemctl restart tete-nam` (audio) ou `sudo systemctl restart tete-nam-ecran` (écran).
 

@@ -89,7 +89,7 @@ rm -rf "$CIBLE"
 install -d "$CIBLE"
 install -m 755 "$BINAIRE" "$CIBLE/stompbox-jack"
 install -m 755 "$ICI/run.sh" "$ICI/ecran.sh" "$ICI/cpu-performance.sh" "$ICI/tetenam.py" \
-    "$ICI/web.py" "$ICI/moteur.py" "$ICI/ble.py" "$ICI/wifi-secours.sh" "$CIBLE/"
+    "$ICI/web.py" "$ICI/moteur.py" "$ICI/midi.py" "$ICI/ble.py" "$ICI/wifi-secours.sh" "$CIBLE/"
 install -m 644 "$ICI/ui.html" "$ICI/chaine-init.txt" "$ICI/VERSION" "$CIBLE/"
 echo "$(cat "$ICI/VERSION") ($(git -C "$DEPOT" rev-parse --short HEAD 2>/dev/null || echo '?'))" > "$CIBLE/VERSION"
 ln -sf "$CIBLE/tetenam.py" /usr/local/bin/tete-nam
@@ -130,7 +130,7 @@ visudo -cf /etc/sudoers.d/tete-nam >/dev/null \
     || { rm -f /etc/sudoers.d/tete-nam; echo "ERREUR : règle sudo refusée"; exit 1; }
 
 etape "6/8 Réglages temps réel"
-usermod -aG audio,video,render,input,systemd-journal "$UTIL"
+usermod -aG audio,video,render,input,dialout,systemd-journal "$UTIL"
 cat > /etc/security/limits.d/95-tete-nam.conf <<EOF
 @audio - rtprio 95
 @audio - memlock unlimited
