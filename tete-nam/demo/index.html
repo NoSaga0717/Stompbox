@@ -34,6 +34,19 @@ a.bouton.fort{background:var(--accent);border-color:var(--accent);color:var(--ac
 #appareil.tel{border-radius:34px;padding:14px 10px 18px}
 #appareil iframe{display:block;border:0;background:#111317;border-radius:6px}
 #appareil.tel iframe{border-radius:20px}
+#fcb{margin-top:18px;background:var(--appareil);color:#e8e8ea;border-radius:16px;padding:14px 16px 16px}
+#fcb h2{font-size:15px;margin:0 0 2px}
+#fcb p{margin:0 0 12px;color:#8a8f99;font-size:13px}
+.pedalier{display:flex;gap:14px;align-items:stretch;flex-wrap:wrap}
+.pieds{flex:1 1 420px;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.pied{border:1px solid #3a3f48;background:#20242b;color:#e8e8ea;border-radius:10px;padding:8px 4px;font:inherit;cursor:pointer;text-align:center;touch-action:manipulation}
+.pied:active,.pied.appui{background:#ffb547;color:#111317}
+.pied b{display:block;font-size:18px}
+.pied small{display:block;font-size:11px;color:inherit;opacity:.75}
+.exps{flex:0 1 220px;display:flex;gap:14px;justify-content:center}
+.exp{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#8a8f99}
+.exp input{writing-mode:vertical-lr;direction:rtl;height:120px;width:34px;accent-color:#ffb547}
+.exp b{color:#e8e8ea;font-size:13px}
 .notes{margin-top:18px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 .note{background:var(--carte);border:1px solid var(--trait);border-radius:12px;padding:12px 14px}
 .note b{display:block;margin-bottom:2px}
@@ -43,7 +56,8 @@ a.bouton.fort{background:var(--accent);border-color:var(--accent);color:var(--ac
 <main>
   <h1>Tête NAM : démo de l'interface</h1>
   <p class="intro">C'est la vraie interface de la tête, branchée sur une tête simulée. Tout se manipule
-    (chaîne, blocs, réglages, presets, accordeur, page système), mais il n'y a pas de son.
+    (chaîne, blocs, réglages, presets, accordeur, page système, pilotage MIDI avec le pédalier virtuel en dessous),
+    mais il n'y a pas de son.
     Pour l'essayer sur un téléphone, ouvrez ce lien sur le téléphone puis « Plein écran ».</p>
 
   <div class="barre">
@@ -58,6 +72,20 @@ a.bouton.fort{background:var(--accent);border-color:var(--accent);color:var(--ac
   </div>
 
   <div id="scene"><div id="appareil"><iframe id="ui" title="Interface Tête NAM"></iframe></div></div>
+
+  <section id="fcb" aria-label="Pédalier MIDI virtuel">
+    <h2>Pédalier MIDI virtuel (comme un FCB1010, canal 1)</h2>
+    <p>Pieds 1 à 5 : Program Change 0 à 4 (preset 1 à 5). Pieds 6 à 10 : Control Change 20 à 24, valeur 127.
+      Pédales A et B : CC 27 et CC 7. Pour assigner : touchez un bloc, « MIDI », « Apprendre », puis un pied ou une pédale.
+      La page Réglages MIDI est dans DSP (en haut à droite).</p>
+    <div class="pedalier">
+      <div class="pieds" id="pieds"></div>
+      <div class="exps">
+        <label class="exp"><b>A</b><input type="range" min="0" max="127" value="0" data-cc="27" aria-label="Pédale A, CC 27"><span>CC 27 · <output>0</output></span></label>
+        <label class="exp"><b>B</b><input type="range" min="0" max="127" value="127" data-cc="7" aria-label="Pédale B, CC 7"><span>CC 7 · <output>127</output></span></label>
+      </div>
+    </div>
+  </section>
 
   <div class="notes">
     <div class="note"><b>Presets</b><span>Trois presets de départ. Ce que vous enregistrez reste dans ce navigateur seulement.</span></div>
@@ -110,5 +138,30 @@ a.bouton.fort{background:var(--accent);border-color:var(--accent);color:var(--ac
   });
   addEventListener("resize", ajuster);
   choisir(courant);
+
+  // Pédalier virtuel : envoie les messages au simulateur dans l'interface
+  function midi(statut, d1, d2) {
+    try { ui.contentWindow.teteDemoMidi && ui.contentWindow.teteDemoMidi(statut, d1, d2); } catch (e) { /* rien */ }
+  }
+  const pieds = document.getElementById("pieds");
+  for (let n = 1; n <= 10; n++) {
+    const b = document.createElement("button");
+    b.className = "pied";
+    b.innerHTML = n <= 5 ? `<b>${n}</b><small>PC ${n - 1}</small>` : `<b>${n}</b><small>CC ${n + 14}</small>`;
+    b.addEventListener("click", () => {
+      if (n <= 5) midi(0xC0, n - 1, 0); else midi(0xB0, n + 14, 127);
+      b.classList.add("appui"); setTimeout(() => b.classList.remove("appui"), 150);
+    });
+    pieds.appendChild(b);
+  }
+  document.querySelectorAll(".exp input").forEach(r => {
+    let attente = false;
+    r.addEventListener("input", () => {
+      r.parentElement.querySelector("output").textContent = r.value;
+      if (attente) return;
+      attente = true;
+      requestAnimationFrame(() => { attente = false; midi(0xB0, +r.dataset.cc, +r.value); });
+    });
+  });
 })();
 </script>
