@@ -30,13 +30,15 @@ unsigned char midiStartMessage[15] = { 0xF0, 0x41, 0x00, 0x00, 0x00, 0x00, 0x30,
  0x7F, 0x00, 0x00, 0x01, 0x01, 0x7F, 0xF7 };
 std::list<MidiEvent> midiEvents;
 
+// Only sets a flag: closing the JACK client from inside a signal handler can
+// hang, which made every service restart wait for systemd's stop timeout.
+static volatile sig_atomic_t quitRequested = 0;
+
 static void signal_handler(int sig)
 {
     (void)sig;
 
-    jack_client_close(client);
-    fprintf(stderr, "signal received, exiting ...\n");
-    exit(0);
+    quitRequested = 1;
 }
 
 /**
@@ -482,7 +484,7 @@ int main(int argc, char* argv[])
 
     fprintf(stderr, "stompbox is now running\n");
 
-    while (1)
+    while (!quitRequested)
     {
 #ifdef WIN32
         Sleep(1000);
@@ -491,9 +493,11 @@ int main(int argc, char* argv[])
 #endif
     }
 
+    fprintf(stderr, "signal received, exiting ...\n");
+
     jack_client_close(client);
 
-    delete guitarProcessor;
-
-    exit(0);
+    // Skip the processor teardown: the OS frees everything, and exiting fast
+    // keeps service restarts (buffer change) short.
+    _exit(0);
 }
