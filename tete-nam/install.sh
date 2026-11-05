@@ -64,6 +64,8 @@ fi
 DEBIAN_FRONTEND=noninteractive apt-get install -y $PAQUETS
 # Texte du pourcentage sur le logo de démarrage (facultatif)
 [ "$ECRAN" = oui ] && { DEBIAN_FRONTEND=noninteractive apt-get install -y plymouth-label || true; }
+# Police du thème de l'interface (facultative : sinon police par défaut)
+[ "$ECRAN" = oui ] && { DEBIAN_FRONTEND=noninteractive apt-get install -y fonts-montserrat || true; }
 
 etape "3/8 Compilation du moteur audio stompbox-jack (5 à 10 min la première fois)"
 sudo -u "$UTIL" git -C "$DEPOT" submodule update --init --recursive
