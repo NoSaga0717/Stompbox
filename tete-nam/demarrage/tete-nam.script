@@ -2,8 +2,8 @@
 # progression et pourcentage dessous. Plymouth estime la progression à partir
 # de la durée des démarrages précédents (le premier est approximatif).
 
-Window.SetBackgroundTopColor(0.067, 0.075, 0.090);      # #111317, comme l'interface
-Window.SetBackgroundBottomColor(0.067, 0.075, 0.090);
+Window.SetBackgroundTopColor(0, 0, 0);      # noir, comme le fond du logo
+Window.SetBackgroundBottomColor(0, 0, 0);
 
 L = Window.GetWidth();
 H = Window.GetHeight();
