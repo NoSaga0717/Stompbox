@@ -1,0 +1,6 @@
+# Les entrées HDMI-CEC du Pi (vc4-hdmi-0/1) se déclarent comme « pointeur » :
+# l'affichage de l'écran (cage) affiche alors une flèche de souris au milieu.
+# On les fait ignorer par libinput : le tactile et une vraie souris USB
+# continuent de marcher. (La télécommande HDMI-CEC n'est pas utilisée.)
+SUBSYSTEM=="input", ATTRS{name}=="vc4-hdmi-0", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+SUBSYSTEM=="input", ATTRS{name}=="vc4-hdmi-1", ENV{LIBINPUT_IGNORE_DEVICE}="1"
