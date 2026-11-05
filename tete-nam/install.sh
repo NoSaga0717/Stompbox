@@ -188,6 +188,16 @@ EOF
     fi
     # Curseur invisible sur l'écran tactile
     python3 "$ICI/demarrage/curseur-invisible.py" /usr/share/icons/tete-nam-invisible
+    # cage charge le thème de curseur « default » de l'utilisateur : on le fait
+    # pointer vers le thème invisible (seulement pour cet utilisateur)
+    sudo -u "$UTIL" mkdir -p "$MAISON/.icons/default"
+    sudo -u "$UTIL" ln -sfn /usr/share/icons/tete-nam-invisible/cursors "$MAISON/.icons/default/cursors"
+    printf '[Icon Theme]\nName=default\nInherits=tete-nam-invisible\n' | sudo -u "$UTIL" tee "$MAISON/.icons/default/index.theme" >/dev/null
+    # Chromium : jamais de proposition de traduction (la page est en français)
+    for d in /etc/chromium/policies/managed /etc/chromium-browser/policies/managed; do
+        mkdir -p "$d"
+        echo '{"TranslateEnabled": false}' > "$d/tete-nam.json"
+    done
     # La console texte ne s'affiche plus sur l'écran (Ctrl+Alt+F2 en garde une)
     systemctl disable getty@tty1.service 2>/dev/null || true
     # Session de connexion de l'écran (accès à l'affichage et au tactile)
