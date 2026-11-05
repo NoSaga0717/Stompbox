@@ -189,6 +189,9 @@ EOF
         update-initramfs -u || echo "ATTENTION : initramfs non mis à jour (le logo apparaîtra un peu plus tard au démarrage)"
     fi
     # Curseur invisible sur l'écran tactile
+    # Sans pointeur déclaré, cage n'affiche pas de flèche (voir le fichier)
+    install -m 644 "$ICI/demarrage/99-tete-nam-sans-curseur.rules" /etc/udev/rules.d/
+    udevadm control --reload-rules 2>/dev/null || true
     python3 "$ICI/demarrage/curseur-invisible.py" /usr/share/icons/tete-nam-invisible
     # cage charge le thème de curseur « default » de l'utilisateur : on le fait
     # pointer vers le thème invisible (seulement pour cet utilisateur)
