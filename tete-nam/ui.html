@@ -825,8 +825,8 @@ function ligneMidi(nom, cible, titre) {
   const a = assignation(cible);
   let h = `<div class="midiligne"><span class="nom">${echap(nom)}</span><span class="quoi">${a ? "CC " + a.cc : "–"}</span>`;
   if (a && a.cible === "actif") h += `<span class="seg" data-mode="${echap(a.cle)}">
-      <button class="${a.mode !== "valeur" ? "on" : ""}" data-v="bascule">Chaque appui bascule</button>
-      <button class="${a.mode === "valeur" ? "on" : ""}" data-v="valeur">Suit la valeur</button></span>`;
+      <button class="${a.mode !== "valeur" ? "on" : ""}" data-v="bascule">Bascule</button>
+      <button class="${a.mode === "valeur" ? "on" : ""}" data-v="valeur">Valeur</button></span>`;
   h += `<button data-app='${echap(JSON.stringify(cible))}' data-titre="${echap(titre)}">Apprendre</button>`;
   if (a) h += `<button class="danger" data-oub="${echap(a.cle)}" aria-label="Oublier">✕</button>`;
   return h + `</div>`;
@@ -846,8 +846,8 @@ function feuilleMidiBloc(b) {
   let h = ligneMidi("Allumé / éteint", {cible: "actif", id: b.id}, n + " allumé / éteint");
   for (const q of c.params) if (q.type === "bouton" || q.type === "entier")
     h += ligneMidi(q.libelle, {cible: "param", id: b.id, nom: q.nom}, n + " : " + q.libelle);
-  h += `<div class="pied">« Chaque appui bascule » : pour un pédalier qui envoie toujours la même valeur (FCB1010 d'origine).
-« Suit la valeur » : 127 = allumé, 0 = éteint, pour un pied réglé en mode on/off.
+  h += `<div class="pied">« Bascule » : chaque appui allume ou éteint, pour un pédalier qui envoie toujours la même valeur (FCB1010 d'origine).
+« Valeur » : 127 = allumé, 0 = éteint, pour un pied réglé en mode on/off.
 Une pédale d'expression sur un réglage le fait varier du minimum au maximum.
 Ces assignations sont enregistrées avec le preset.</div>`;
   const f = ouvrir("MIDI · " + n, h);

@@ -143,7 +143,7 @@ La tête lit toute seule **toutes les entrées MIDI branchées** : la prise **MI
 **Test avec le FCB1010 et la M4 :** câble MIDI de la prise **MIDI OUT** du FCB1010 vers la prise **MIDI IN** de la M4. Sur l'écran : **DSP** (en haut à droite) → **Réglages MIDI…**. La M4 doit apparaître dans « Entrées MIDI détectées », et chaque appui sur un pied s'affiche dans « Dernier message reçu » (le mot MIDI clignote aussi en haut à droite).
 
 - **Changer de preset :** chaque pied du FCB1010 envoie un *Program Change*. Program Change 0 charge le preset 1 de la liste, 1 le preset 2, etc. (le numéro affiché en haut de l'écran).
-- **Allumer / éteindre un effet :** toucher le bloc, **MIDI**, **Apprendre** sur « Allumé / éteint », puis appuyer sur le pied. Le FCB1010 d'origine envoie toujours la même valeur : laisser « Chaque appui bascule ». Pour le FCB, régler sur le pied un *Control Change* avec la valeur 127 (une valeur 0 est ignorée).
+- **Allumer / éteindre un effet :** toucher le bloc, **MIDI**, **Apprendre** sur « Allumé / éteint », puis appuyer sur le pied. Le FCB1010 d'origine envoie toujours la même valeur : laisser « Bascule ». Pour le FCB, régler sur le pied un *Control Change* avec la valeur 127 (une valeur 0 est ignorée).
 - **Pédale d'expression :** même chose sur un bouton (par exemple « Pédale » d'un bloc Wah, ou « Niveau » d'un bloc Volume) puis bouger la pédale : elle fait varier le réglage du minimum au maximum.
 - **Preset suivant / précédent, accordeur :** dans **Réglages MIDI…**, valables pour tous les presets.
 - Les assignations des blocs sont **enregistrées avec le preset** (penser à Enregistrer). Un petit badge `CC 20` sur un bouton montre qu'il est piloté au pied.
