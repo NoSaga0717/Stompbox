@@ -180,7 +180,7 @@ EOF
     done
     THEME=/usr/share/plymouth/themes/tete-nam
     mkdir -p "$THEME"
-    AVANT=$(cat "$THEME"/* 2>/dev/null | md5sum)
+    AVANT=$( (cat "$THEME"/* 2>/dev/null || true) | md5sum)
     install -m 644 "$ICI/demarrage/tete-nam.plymouth" "$ICI/demarrage/tete-nam.script" \
         "$ICI/demarrage/logo.png" "$ICI/demarrage/barre.png" "$ICI/demarrage/barre-fond.png" "$THEME/"
     if [ "$(plymouth-set-default-theme 2>/dev/null)" != tete-nam ] || [ "$AVANT" != "$(cat "$THEME"/* | md5sum)" ]; then
