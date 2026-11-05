@@ -54,7 +54,7 @@ if(JACK_LIB)
 			-Wunreachable-code -Wdouble-promotion -Weffc++ -Wconversion
 			-Wsign-conversion
 			"$<$<CONFIG:DEBUG>:-Og;-ggdb;-Werror>"
-			"$<$<CONFIG:RELEASE>:-Ofast>"
+			"$<$<CONFIG:RELEASE>:-Ofast;-fno-finite-math-only>"
 		)
 	endif()
 else()

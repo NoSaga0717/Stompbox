@@ -11,7 +11,9 @@ Group=audio
 ExecStartPre=+/opt/tete-nam/cpu-performance.sh
 ExecStart=/opt/tete-nam/run.sh
 Restart=always
-RestartSec=3
+RestartSec=1
+# Arrêt rapide (changement de buffer) : au-delà de 5 s, arrêt forcé
+TimeoutStopSec=5
 LimitRTPRIO=95
 LimitMEMLOCK=infinity
 Nice=-10

@@ -217,6 +217,10 @@ button.danger{border-color:transparent}
 .stats b{font-weight:400}
 .champ{border-radius:8px}
 .clavier button{text-transform:none;letter-spacing:0}
+/* Panneau du bloc compact : il prend la hauteur de ses boutons, pas tout l'écran */
+#panneau{flex:0 1 auto;padding:8px 14px 10px;margin-top:4px}
+#boutons{flex:0 1 auto;padding-top:6px}
+@media (max-width:620px){#panneau{min-height:0}#boutons{padding-top:8px}}
 #aindic{background:var(--accent)}
 #anote{font-weight:300}
 </style></head><body>
@@ -352,6 +356,11 @@ function dessinerChaine() {
   $("aide").textContent = T.chaine.length ? "Toucher : régler · appui long puis glisser : déplacer · + : ajouter" : "";
 }
 
+let clicIgnoreJusqua = 0;
+document.addEventListener("click", ev => {
+  if (performance.now() < clicIgnoreJusqua) { ev.stopPropagation(); ev.preventDefault(); }
+}, true);
+
 /* Toucher = sélectionner ; glisser = faire défiler ; appui long = déplacer */
 (function gestesChaine() {
   const r = $("rangee");
@@ -376,7 +385,12 @@ function dessinerChaine() {
     if (m === "glisse") finirGlisse(ev.type === "pointercancel");
     else if (m === "?" && ev.type === "pointerup") {
       if (blk) { choisir(blk.dataset.id); }
-      else if (ev.target.closest("#ajout")) feuilleAjout();
+      else if (ev.target.closest("#ajout")) {
+        // Au toucher, le navigateur envoie un « clic » juste après : il tomberait
+        // sur la fenêtre qui vient de s'ouvrir sous le doigt et ajouterait un bloc.
+        clicIgnoreJusqua = performance.now() + 500;
+        feuilleAjout();
+      }
     }
     if (!occupe && aRedessiner) redessiner();
   };
@@ -723,7 +737,7 @@ async function feuilleSysteme() {
   const f = ouvrir("Système", h);
   f.querySelectorAll("[data-buf]").forEach(bt => bt.onclick = () => {
     const t = +bt.dataset.buf;
-    confirmer(`Passer le buffer à ${t} × ${r.NPERIODS} ? L'audio coupe environ 5 secondes.`, "Appliquer", async () => {
+    confirmer(`Passer le buffer à ${t} × ${r.NPERIODS} ? L'audio coupe le temps du redémarrage (moins d'une minute).`, "Appliquer", async () => {
       if (await action("/api/buffer", {taille: t})) message("Redémarrage de l'audio…", true);
       maj(true);
     });

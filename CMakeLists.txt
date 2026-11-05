@@ -27,8 +27,8 @@ else()
 		-Wall 
 		# -Wpedantic -Wextra -Wstrict-aliasing -Wunreachable-code -Weffc++ -Wno-unused-parameter
 		"$<$<CONFIG:DEBUG>:-Og;-ggdb>"
-		"$<$<CONFIG:RELWITHDEBINFO>:-Ofast>"
-		"$<$<CONFIG:RELEASE>:-Ofast>"
+		"$<$<CONFIG:RELWITHDEBINFO>:-Ofast;-fno-finite-math-only>"
+		"$<$<CONFIG:RELEASE>:-Ofast;-fno-finite-math-only>"
 	)
 endif()
 
