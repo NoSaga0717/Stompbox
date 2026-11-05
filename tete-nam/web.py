@@ -21,9 +21,16 @@ API (tout en JSON) :
   POST /api/calibration {valeur}   POST /api/volume {valeur}
   POST /api/buffer    {taille}     POST /api/accordeur {actif}
   POST /api/envoyer   fichier .nam brut, nom dans l'en-tête X-Nom-Fichier
+  POST /api/midi      {action: apprendre|annuler|oublier|mode|canal, ...}
+
+MIDI (midi.py) : Program Change n -> n-ième preset de la liste (0 = le 1er) ;
+Control Change -> ce qu'on lui a fait « apprendre » (bloc allumé/éteint,
+réglage, preset suivant/précédent, accordeur). Les assignations des blocs
+sont propres à chaque preset, celles de navigation valent pour tous.
 
 Uniquement la bibliothèque standard de Python : rien à installer.
 """
+import copy
 import hashlib
 import json
 import math
@@ -39,6 +46,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ICI = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, ICI)
+import midi  # noqa: E402
 import tetenam  # noqa: E402
 from moteur import CHAINE, Moteur, MoteurAbsent  # noqa: E402
 
@@ -46,6 +54,7 @@ PORT = int(os.environ.get("TETE_NAM_PORT", "8080"))
 DONNEES = tetenam.DONNEES
 PRESETS = os.path.join(DONNEES, "Presets")
 FICHIER_ETAT = os.path.join(DONNEES, "etat.json")
+FICHIER_MIDI = os.path.join(DONNEES, "midi.json")
 DOSSIER_MODELES = tetenam.DOSSIER_MODELES
 PAGE = os.path.join(ICI, "ui.html")
 
@@ -293,7 +302,7 @@ def api_etat():
     return {"rev": etat["rev"], "cfg": etat["cfg"], "moteur": etat["moteur"], "dsp": etat["dsp"],
             "xruns": etat["xruns"], "temp": temperature(), "throttled": etat["throttled"],
             "preset": etat["preset"], "numero": numero_preset(), "modifie": etat["modifie"],
-            "chargement": etat["chargement"], "accordeur": accordeur()}
+            "chargement": etat["chargement"], "accordeur": accordeur(), "midi": etat_midi()}
 
 
 def api_tout():
@@ -312,7 +321,8 @@ def api_tout():
     return {"rev": etat["rev"], "preset": etat["preset"], "numero": numero_preset(),
             "modifie": etat["modifie"], "presets": liste_presets(), "chaine": chaine,
             "reglages": {k: r[k] for k in ("CARD", "RATE", "PERIOD", "NPERIODS", "INPUT_DBU")},
-            "volume": r["VOLUME_DB"], "buffers": tetenam.BUFFERS}
+            "volume": r["VOLUME_DB"], "buffers": tetenam.BUFFERS,
+            "midi": {"canal": M["canal"], "assignations": assignations()}}
 
 
 def api_config():
@@ -457,6 +467,7 @@ def api_retirer(d):
         ids = [x for x in chaine() if x != i]
         mettre_chaine(ids)
         etat["prog"]["chaines"][CHAINE] = ids
+        oublier_bloc(i)
         modifie()
         return {"ok": True}
 
@@ -485,8 +496,10 @@ def charger_preset(nom):
     attendre_chargement()
     rafraichir()
     etat["preset"], etat["modifie"] = nom, False
+    M["courant"] = copy.deepcopy(M["presets"].get(nom, {}))
     sauver_en_cours()
     sauver_etat()
+    sauver_midi()
 
 
 def api_preset(d):
@@ -507,6 +520,8 @@ def api_preset(d):
             nom = nom_preset(d.get("nom") or etat["preset"])
             moteur.ok(f'SavePreset "{nom}"')
             etat["preset"], etat["modifie"] = nom, False
+            M["presets"][nom] = copy.deepcopy(M["courant"])
+            sauver_midi()
             sauver_etat()
             etat["rev"] += 1
         elif action == "supprimer":
@@ -514,6 +529,8 @@ def api_preset(d):
             if nom not in presets:
                 raise ValueError(f"Preset introuvable : {nom}")
             moteur.ok(f'DeletePreset "{nom}"')
+            M["presets"].pop(nom, None)
+            sauver_midi()
             if etat["preset"] == nom:
                 etat["preset"], etat["modifie"] = "", True
                 sauver_etat()
@@ -522,6 +539,8 @@ def api_preset(d):
             mettre_chaine([])
             etat["prog"]["chaines"][CHAINE] = []
             etat["preset"] = ""
+            M["courant"] = {}
+            sauver_midi()
             modifie()
         else:
             raise ValueError("Action inconnue")
@@ -618,12 +637,260 @@ def api_envoyer(nom, contenu):
     return {"ok": True, "nom": nom, "remplace": existait}
 
 
+# --- MIDI -------------------------------------------------------------------------
+# midi.json : {"canal": 0 (= tous) ou 1-16,
+#              "global":  {"cc:80": {"cible": "suivant"}, ...},
+#              "presets": {"Nom du preset": {"cc:20": {"cible": "actif", "id": "Screamer",
+#                                                      "mode": "bascule"}, ...}},
+#              "courant": assignations de la chaîne en cours (pas encore enregistrées)}
+# Cibles : actif {id, mode bascule|valeur}, param {id, nom}, suivant, precedent, accordeur.
+CIBLES_GLOBALES = ("suivant", "precedent", "accordeur")
+LIBELLES_GLOBAUX = {"suivant": "Preset suivant", "precedent": "Preset précédent",
+                    "accordeur": "Accordeur"}
+
+M = {"canal": 0, "global": {}, "presets": {}, "courant": {}}
+midi_vivant = {"dernier": "", "t": 0.0, "attente": None, "appris": "", "ports": None}
+file_midi = deque()
+signal_midi = threading.Event()
+
+
+def lire_midi():
+    try:
+        with open(FICHIER_MIDI) as f:
+            d = json.load(f)
+        M["canal"] = int(d.get("canal", 0)) if 0 <= int(d.get("canal", 0)) <= 16 else 0
+        for k in ("global", "presets", "courant"):
+            if isinstance(d.get(k), dict):
+                M[k] = d[k]
+    except (OSError, ValueError, TypeError):
+        pass
+
+
+def sauver_midi():
+    try:
+        ecrire_fichier(FICHIER_MIDI, json.dumps(M, ensure_ascii=False, indent=1))
+    except OSError as e:
+        journal("Sauvegarde MIDI impossible :", e)
+
+
+def oublier_bloc(i):
+    """Un bloc retiré de la chaîne n'a plus d'assignation."""
+    avant = len(M["courant"])
+    M["courant"] = {k: v for k, v in M["courant"].items() if v.get("id") != i}
+    if len(M["courant"]) != avant:
+        sauver_midi()
+
+
+def meme_cible(a, b):
+    return all(a.get(k) == b.get(k) for k in ("cible", "id", "nom"))
+
+
+def libelle_cible(c):
+    if c["cible"] in LIBELLES_GLOBAUX:
+        return LIBELLES_GLOBAUX[c["cible"]]
+    t = etat["types"].get(type_de(c.get("id", "")), {})
+    nom = c.get("id", "?")
+    court = {x[0]: x[2] for x in TYPES_UI}.get(type_de(nom))
+    if court:                                   # « Overdrive 2 » plutôt que « Screamer_2 »
+        nom = court + (" " + nom.split("_")[1] if "_" in nom else "")
+    if c["cible"] == "actif":
+        return f"{nom} : allumé / éteint"
+    t_ = type_de(c.get("id", ""))
+    prm = param_de(t_, c.get("nom", ""))
+    lib = LIBELLES.get(f"{t_}.{c.get('nom')}", LIBELLES.get(c.get("nom"), c.get("nom")))
+    return f"{nom} : {lib}" if t and prm else f"{nom} : {c.get('nom')}"
+
+
+def assignations():
+    """Liste pour l'interface : d'abord celles du preset, puis les globales."""
+    r = []
+    for portee in ("courant", "global"):
+        for cle, c in sorted(M[portee].items(), key=lambda x: int(x[0].split(":")[1])):
+            r.append(dict(c, cle=cle, cc=int(cle.split(":")[1]), libelle=libelle_cible(c),
+                          portee="preset" if portee == "courant" else "global"))
+    return r
+
+
+def midi_recu(source, statut, d1, d2):
+    """Appelé par les fils de lecture de midi.py : on note et on met en file."""
+    canal = (statut & 0x0F) + 1
+    midi_vivant["dernier"] = f"{source} · {midi.decrire(statut, d1, d2)}"
+    midi_vivant["t"] = time.time()
+    if M["canal"] and canal != M["canal"]:
+        return
+    if statut & 0xF0 in (0xB0, 0xC0):
+        file_midi.append((statut & 0xF0, d1, d2))
+        signal_midi.set()
+
+
+def apprendre(cc, valeur):
+    a = midi_vivant["attente"]
+    midi_vivant["attente"] = None
+    cible = a["cible"]
+    cle = f"cc:{cc}"
+    portee = "global" if cible["cible"] in CIBLES_GLOBALES else "courant"
+    autre = "courant" if portee == "global" else "global"
+    # Une cible = un seul contrôleur, un contrôleur = une seule cible
+    M[portee] = {k: v for k, v in M[portee].items() if not meme_cible(v, cible)}
+    M[autre].pop(cle, None)
+    if cible["cible"] == "actif":
+        cible = dict(cible, mode="bascule")
+    M[portee][cle] = cible
+    midi_vivant["appris"] = f"CC {cc} → {libelle_cible(cible)}"
+    sauver_midi()
+    if portee == "courant":
+        modifie()
+    else:
+        etat["rev"] += 1
+
+
+def executer_cc(cc, v):
+    cle = f"cc:{cc}"
+    c = M["courant"].get(cle) or M["global"].get(cle)
+    if c is None:
+        return
+    p = etat["prog"]
+    if c["cible"] == "actif":
+        i = c.get("id")
+        if i not in chaine():
+            return
+        if c.get("mode") == "valeur":
+            actif = v >= 64
+        elif v == 0:          # pied « momentané » qui envoie 0 au relâchement
+            return
+        else:
+            actif = not p["actifs"].get(i, True)
+        if actif == p["actifs"].get(i, True) and c.get("mode") == "valeur":
+            return
+        moteur.ok(f"SetParam {i} Enabled {1 if actif else 0}")
+        p["actifs"][i] = actif
+        modifie()
+    elif c["cible"] == "param":
+        i, nom = c.get("id"), c.get("nom", "")
+        prm = param_de(type_de(i or ""), nom)
+        if i not in chaine() or prm is None or prm["type"] not in ("bouton", "entier"):
+            return
+        x = prm["min"] + (prm["max"] - prm["min"]) * v / 127
+        if prm["type"] == "entier":
+            x = int(round(x))
+        moteur.ok(f"SetParam {i} {nom} {x}")
+        p["valeurs"].setdefault(i, {})[nom] = f"{x}"
+        modifie()
+    elif v == 0:
+        return
+    elif c["cible"] in ("suivant", "precedent"):
+        presets = liste_presets()
+        if presets:
+            k = presets.index(etat["preset"]) + (1 if c["cible"] == "suivant" else -1) \
+                if etat["preset"] in presets else (0 if c["cible"] == "suivant" else -1)
+            charger_preset(presets[k % len(presets)])
+    elif c["cible"] == "accordeur":
+        actif = not etat["accordeur"]
+        moteur.ok(f"SetParam Tuner Enabled {1 if actif else 0}")
+        etat["accordeur"] = actif
+        etat["rev"] += 1
+
+
+def boucle_midi():
+    """Traite la file : les valeurs continues (pédale) sont regroupées, seule la
+    dernière compte ; les appuis et les changements de preset sont tous joués."""
+    while True:
+        signal_midi.wait()
+        signal_midi.clear()
+        lot = []
+        while file_midi:
+            lot.append(file_midi.popleft())
+        # Plusieurs Program Change d'affilée : seul le dernier compte
+        dernier_pc = max((k for k, m in enumerate(lot) if m[0] == 0xC0), default=-1)
+        derniere_valeur = {}
+        for k, (t, d1, d2) in enumerate(lot):
+            if t == 0xB0:
+                derniere_valeur[d1] = k
+        for k, (t, d1, d2) in enumerate(lot):
+            try:
+                with verrou:
+                    if t == 0xC0 and k == dernier_pc:
+                        presets = liste_presets()
+                        if d1 < len(presets):
+                            charger_preset(presets[d1])
+                    elif t == 0xB0:
+                        if midi_vivant["attente"]:
+                            if time.time() - midi_vivant["attente"]["t"] < 30:
+                                apprendre(d1, d2)
+                                continue
+                            midi_vivant["attente"] = None
+                        c = M["courant"].get(f"cc:{d1}") or M["global"].get(f"cc:{d1}")
+                        continu = c is not None and (c["cible"] == "param" or
+                                                     (c["cible"] == "actif" and c.get("mode") == "valeur"))
+                        if continu and derniere_valeur[d1] != k:
+                            continue
+                        executer_cc(d1, d2)
+            except (MoteurAbsent, ValueError, OSError) as e:
+                journal("MIDI : commande impossible :", e)
+
+
+def api_midi(d):
+    with verrou:
+        action = d.get("action")
+        if action == "apprendre":
+            c = d.get("cible") or {}
+            cible = {"cible": str(c.get("cible", ""))}
+            if cible["cible"] in ("actif", "param"):
+                cible["id"] = str(c.get("id", ""))
+                if cible["id"] not in chaine():
+                    raise ValueError(f"Bloc inconnu : {cible['id']}")
+                if cible["cible"] == "param":
+                    cible["nom"] = str(c.get("nom", ""))
+                    prm = param_de(type_de(cible["id"]), cible["nom"])
+                    if prm is None or prm["type"] not in ("bouton", "entier"):
+                        raise ValueError("Ce réglage ne se pilote pas en MIDI")
+            elif cible["cible"] not in CIBLES_GLOBALES:
+                raise ValueError("Cible MIDI inconnue")
+            midi_vivant["attente"] = {"cible": cible, "t": time.time()}
+            midi_vivant["appris"] = ""
+        elif action == "annuler":
+            midi_vivant["attente"] = None
+        elif action == "oublier":
+            cle = str(d.get("cle", ""))
+            if M["courant"].pop(cle, None) is not None:
+                modifie()
+            elif M["global"].pop(cle, None) is not None:
+                etat["rev"] += 1
+            sauver_midi()
+        elif action == "mode":
+            c = M["courant"].get(str(d.get("cle", "")))
+            if not c or c["cible"] != "actif" or d.get("mode") not in ("bascule", "valeur"):
+                raise ValueError("Assignation inconnue")
+            c["mode"] = d["mode"]
+            sauver_midi()
+            modifie()
+        elif action == "canal":
+            canal = int(d.get("canal", 0))
+            if not 0 <= canal <= 16:
+                raise ValueError("Canal entre 1 et 16 (0 = tous)")
+            M["canal"] = canal
+            sauver_midi()
+            etat["rev"] += 1
+        else:
+            raise ValueError("Action inconnue")
+        return {"ok": True}
+
+
+def etat_midi():
+    a = midi_vivant["attente"]
+    if a and time.time() - a["t"] >= 30:
+        midi_vivant["attente"] = a = None
+    return {"dernier": midi_vivant["dernier"], "age": round(time.time() - midi_vivant["t"], 1)
+            if midi_vivant["t"] else None, "attente": bool(a), "appris": midi_vivant["appris"],
+            "ports": midi_vivant["ports"].ports() if midi_vivant["ports"] else []}
+
+
 LECTURES = {"/api/etat": api_etat, "/api/tout": api_tout, "/api/config": api_config,
             "/api/systeme": api_systeme}
 ROUTES = {"/api/param": api_param, "/api/actif": api_actif, "/api/ordre": api_ordre,
           "/api/ajouter": api_ajouter, "/api/retirer": api_retirer, "/api/preset": api_preset,
           "/api/calibration": api_calibration, "/api/volume": api_volume,
-          "/api/buffer": api_buffer, "/api/accordeur": api_accordeur}
+          "/api/buffer": api_buffer, "/api/accordeur": api_accordeur, "/api/midi": api_midi}
 
 
 class Gestionnaire(BaseHTTPRequestHandler):
@@ -683,7 +950,13 @@ class Gestionnaire(BaseHTTPRequestHandler):
 def main():
     os.makedirs(PRESETS, exist_ok=True)
     lire_etat()
+    lire_midi()
     threading.Thread(target=boucle, daemon=True).start()
+    threading.Thread(target=boucle_midi, daemon=True).start()
+    entrees = midi.EntreesMidi(midi_recu, uart=tetenam.reglages()["MIDI_UART"],
+                               journal=journal)
+    midi_vivant["ports"] = entrees
+    entrees.demarrer()
     journal(f"Page web : http://{os.uname().nodename}.local:{PORT}")
     ThreadingHTTPServer(("0.0.0.0", PORT), Gestionnaire).serve_forever()
 

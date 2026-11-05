@@ -77,6 +77,7 @@ def reglages(c=None):
         "VOLUME_DB": nombre(c.get("VOLUME_DB"), 0.0, -40, 40),
         "ECRAN": "non" if c.get("ECRAN", "oui") == "non" else "oui",
         "ECRAN_ROTATION": c.get("ECRAN_ROTATION", "0") if c.get("ECRAN_ROTATION", "0") in ("0", "90", "180", "270") else "0",
+        "MIDI_UART": c.get("MIDI_UART", "") if c.get("MIDI_UART", "").startswith("/dev/") else "",
     }
 
 
@@ -119,6 +120,12 @@ ECRAN={ECRAN}
 
 # Rotation de l'image de l'écran : 0, 90, 180 ou 270 (écran monté à l'envers : 180)
 ECRAN_ROTATION={ECRAN_ROTATION}
+
+# Entrée MIDI DIN sur le port série du Pi (carte maison) : ex. /dev/ttyAMA0
+# Vide = pas d'entrée série. Les entrées MIDI USB et la prise MIDI IN de la
+# carte son sont toujours lues, sans réglage. Après changement :
+#   sudo systemctl restart tete-nam-web
+MIDI_UART={MIDI_UART}
 """
 
 

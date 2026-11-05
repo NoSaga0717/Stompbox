@@ -59,6 +59,7 @@
     s = {presets: copie(PRESETS_DEPART), preset: "Clean délai", chaine: copie(PRESETS_DEPART["Clean délai"]),
          modifie: false, cal: 16, volume: 0, buffer: 128};
   }
+  if (!s.midi) s.midi = {canal: 0, global: {}, presets: {}, courant: {}};
   let rev = 1, accordeur = false, vus = new Set(s.chaine.map(b => b.id));
   const histo = [];
   function sauver() { try { localStorage.setItem(CLE, JSON.stringify(s)); } catch (e) { /* pas grave */ } }
@@ -93,10 +94,11 @@
   const lectures = {
     "/api/etat": () => ({rev, cfg: CFG.cfg, moteur: true, dsp: histo.length ? histo[histo.length - 1] : dsp(), xruns: 0,
       temp: 52 + Math.random() * 2, throttled: "0x0", preset: s.preset, numero: numero(), modifie: s.modifie,
-      chargement: false, accordeur: tuner()}),
+      chargement: false, accordeur: tuner(), midi: etatMidi()}),
     "/api/tout": () => ({rev, preset: s.preset, numero: numero(), modifie: s.modifie, presets: noms(), chaine: copie(s.chaine),
       reglages: {CARD: "M4", RATE: 48000, PERIOD: s.buffer, NPERIODS: 2, INPUT_DBU: s.cal},
-      volume: s.volume, buffers: [64, 128, 256, 512]}),
+      volume: s.volume, buffers: [64, 128, 256, 512],
+      midi: {canal: s.midi.canal, assignations: assignations()}}),
     "/api/config": () => copie(CFG),
     "/api/systeme": () => ({histo: histo.slice(), temp: 53, throttled: "0x0", xruns: 0, dsp: histo[histo.length - 1],
       version: "démo", service: "active"}),
@@ -105,6 +107,7 @@
   function charger(nom) {
     if (!s.presets[nom]) throw new Error("Preset introuvable : " + nom);
     s.chaine = copie(s.presets[nom]); s.preset = nom; s.modifie = false;
+    s.midi.courant = copie(s.midi.presets[nom] || {});
     s.chaine.forEach(b => vus.add(b.id)); rev++; sauver();
   }
 
@@ -132,7 +135,12 @@
       s.chaine.splice(i >= 0 ? i + 1 : s.chaine.length, 0, bloc(id, true));
       change(); return {ok: true, id};
     },
-    "/api/retirer": d => { trouver(d.id); s.chaine = s.chaine.filter(b => b.id !== d.id); change(); return {ok: true}; },
+    "/api/retirer": d => {
+      trouver(d.id); s.chaine = s.chaine.filter(b => b.id !== d.id);
+      for (const k of Object.keys(s.midi.courant)) if (s.midi.courant[k].id === d.id) delete s.midi.courant[k];
+      change(); return {ok: true};
+    },
+    "/api/midi": d => apiMidi(d),
     "/api/preset": d => {
       const liste = noms();
       if (d.action === "charger") charger(String(d.nom));
@@ -144,12 +152,13 @@
       } else if (d.action === "sauver") {
         const nom = String(d.nom || s.preset || "").replace(/\s+/g, " ").trim().slice(0, 40);
         if (!nom) throw new Error("Donnez un nom au preset");
-        s.presets[nom] = copie(s.chaine); s.preset = nom; s.modifie = false; rev++; sauver();
+        s.presets[nom] = copie(s.chaine); s.preset = nom; s.modifie = false;
+        s.midi.presets[nom] = copie(s.midi.courant); rev++; sauver();
       } else if (d.action === "supprimer") {
-        delete s.presets[d.nom];
+        delete s.presets[d.nom]; delete s.midi.presets[d.nom];
         if (s.preset === d.nom) { s.preset = ""; s.modifie = true; }
         rev++; sauver();
-      } else if (d.action === "nouveau") { s.chaine = []; s.preset = ""; change(); }
+      } else if (d.action === "nouveau") { s.chaine = []; s.preset = ""; s.midi.courant = {}; change(); }
       else throw new Error("Action inconnue");
       return {ok: true, preset: s.preset};
     },
@@ -158,6 +167,94 @@
     "/api/buffer": d => { s.buffer = +d.taille; rev++; sauver(); return {ok: true}; },
     "/api/accordeur": d => { accordeur = !!d.actif; return {ok: true}; },
   };
+
+  // --- MIDI (même logique que web.py) -------------------------------------------
+  const GLOBALES = {suivant: "Preset suivant", precedent: "Preset précédent", accordeur: "Accordeur"};
+  const vivant = {dernier: "", t: 0, attente: null, appris: ""};
+  const meme = (a, b) => ["cible", "id", "nom"].every(k => (a[k] || "") === (b[k] || ""));
+  const paramDe = (id, nom) => ((CFG.types[typeDe(id)] || {}).params || []).find(q => q.nom === nom);
+  function libelle(c) {
+    if (GLOBALES[c.cible]) return GLOBALES[c.cible];
+    const t = CFG.types[typeDe(c.id)], num = c.id.split("_")[1];
+    const nom = (t ? t.court : c.id) + (num ? " " + num : "");
+    if (c.cible === "actif") return nom + " : allumé / éteint";
+    const p = paramDe(c.id, c.nom);
+    return nom + " : " + (p ? p.libelle : c.nom);
+  }
+  function assignations() {
+    const r = [];
+    for (const [portee, table] of [["preset", s.midi.courant], ["global", s.midi.global]])
+      for (const cle of Object.keys(table).sort((a, b) => +a.split(":")[1] - +b.split(":")[1]))
+        r.push(Object.assign({}, table[cle], {cle, cc: +cle.split(":")[1], libelle: libelle(table[cle]), portee}));
+    return r;
+  }
+  function etatMidi() {
+    if (vivant.attente && Date.now() - vivant.attente.t > 30000) vivant.attente = null;
+    return {dernier: vivant.dernier, age: vivant.t ? (Date.now() - vivant.t) / 1000 : null,
+            attente: !!vivant.attente, appris: vivant.appris, ports: ["Pédalier virtuel"]};
+  }
+  function apprendre(cc) {
+    let cible = vivant.attente.cible; vivant.attente = null;
+    const cle = "cc:" + cc, globale = !!GLOBALES[cible.cible];
+    const table = globale ? "global" : "courant", autre = globale ? "courant" : "global";
+    for (const k of Object.keys(s.midi[table])) if (meme(s.midi[table][k], cible)) delete s.midi[table][k];
+    delete s.midi[autre][cle];
+    if (cible.cible === "actif") cible = Object.assign({}, cible, {mode: "bascule"});
+    s.midi[table][cle] = cible;
+    vivant.appris = "CC " + cc + " → " + libelle(cible);
+    if (globale) { rev++; sauver(); } else change();
+  }
+  function executerCC(cc, v) {
+    const c = s.midi.courant["cc:" + cc] || s.midi.global["cc:" + cc];
+    if (!c) return;
+    if (c.cible === "actif") {
+      const b = s.chaine.find(x => x.id === c.id); if (!b) return;
+      if (c.mode === "valeur") { if (b.actif === (v >= 64)) return; b.actif = v >= 64; }
+      else if (v === 0) return;
+      else b.actif = !b.actif;
+      change();
+    } else if (c.cible === "param") {
+      const b = s.chaine.find(x => x.id === c.id), p = paramDe(c.id, c.nom); if (!b || !p) return;
+      let x = p.min + (p.max - p.min) * v / 127; if (p.type === "entier") x = Math.round(x);
+      b.valeurs[c.nom] = x; change();
+    } else if (v === 0) return;
+    else if (c.cible === "suivant" || c.cible === "precedent") ecritures["/api/preset"]({action: c.cible});
+    else if (c.cible === "accordeur") { accordeur = !accordeur; rev++; }
+  }
+  function decrire(statut, d1, d2) {
+    const t = statut & 0xF0, canal = (statut & 0x0F) + 1;
+    return t === 0xB0 ? `Canal ${canal} · CC ${d1} = ${d2}` : t === 0xC0 ? `Canal ${canal} · Program Change ${d1}` : `Canal ${canal} · message`;
+  }
+  /* Appelé par le pédalier virtuel de la page de démo */
+  window.teteDemoMidi = function (statut, d1, d2) {
+    vivant.dernier = "Pédalier virtuel · " + decrire(statut, d1, d2); vivant.t = Date.now();
+    const canal = (statut & 0x0F) + 1;
+    if (s.midi.canal && canal !== s.midi.canal) return;
+    if ((statut & 0xF0) === 0xC0) { const l = noms(); if (d1 < l.length) charger(l[d1]); }
+    else if ((statut & 0xF0) === 0xB0) {
+      if (vivant.attente) { apprendre(d1); return; }
+      executerCC(d1, d2);
+    }
+  };
+  function apiMidi(d) {
+    if (d.action === "apprendre") {
+      const c = d.cible || {}, cible = {cible: String(c.cible || "")};
+      if (cible.cible === "actif" || cible.cible === "param") {
+        cible.id = String(c.id || ""); trouver(cible.id);
+        if (cible.cible === "param") cible.nom = String(c.nom || "");
+      } else if (!GLOBALES[cible.cible]) throw new Error("Cible MIDI inconnue");
+      vivant.attente = {cible, t: Date.now()}; vivant.appris = "";
+    } else if (d.action === "annuler") vivant.attente = null;
+    else if (d.action === "oublier") {
+      if (s.midi.courant[d.cle]) { delete s.midi.courant[d.cle]; change(); }
+      else { delete s.midi.global[d.cle]; rev++; sauver(); }
+    } else if (d.action === "mode") {
+      const c = s.midi.courant[d.cle]; if (!c) throw new Error("Assignation inconnue");
+      c.mode = d.mode; change();
+    } else if (d.action === "canal") { s.midi.canal = Math.max(0, Math.min(16, +d.canal)); rev++; sauver(); }
+    else throw new Error("Action inconnue");
+    return {ok: true};
+  }
 
   // Petit délai, comme une vraie tête en Wi-Fi
   const attendre = ms => new Promise(r => setTimeout(r, ms));
