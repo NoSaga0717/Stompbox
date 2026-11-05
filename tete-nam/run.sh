@@ -8,20 +8,29 @@ DONNEES="$HOME/tete-nam"           # presets, chaîne en cours, lien vers les mo
 # Pas de session D-Bus ici : on évite la réservation de carte par D-Bus
 export JACK_NO_AUDIO_RESERVATION=1
 
-echo "Attente de la carte $CARD..."
-for i in $(seq 1 30); do
-    [ -e "/proc/asound/$CARD" ] && break
-    sleep 1
-done
-if [ ! -e "/proc/asound/$CARD" ]; then
-    echo "ERREUR : carte $CARD introuvable. Cartes vues :"
-    cat /proc/asound/cards
-    exit 1
-fi
+if [ "$CARD" = "aucune" ]; then
+    # Mode test sans carte son : JACK tourne sur une carte fictive (pas de son),
+    # pour essayer l'interface et le moteur.
+    echo "Démarrage de JACK SANS carte son (mode test, pas de son) : $RATE Hz, buffer $PERIOD"
+    jackd -R -P 80 -d dummy -r "$RATE" -p "$PERIOD" -C 2 -P 4 &
+    JACK_PID=$!
+else
+    echo "Attente de la carte $CARD..."
+    for i in $(seq 1 30); do
+        [ -e "/proc/asound/$CARD" ] && break
+        sleep 1
+    done
+    if [ ! -e "/proc/asound/$CARD" ]; then
+        echo "ERREUR : carte $CARD introuvable. Cartes vues :"
+        cat /proc/asound/cards
+        echo "(Pour essayer sans carte son : CARD=aucune dans /etc/tete-nam.conf)"
+        exit 1
+    fi
 
-echo "Démarrage de JACK : hw:$CARD, $RATE Hz, buffer $PERIOD x $NPERIODS"
-jackd -R -P 80 -d alsa -d "hw:$CARD" -r "$RATE" -p "$PERIOD" -n "$NPERIODS" &
-JACK_PID=$!
+    echo "Démarrage de JACK : hw:$CARD, $RATE Hz, buffer $PERIOD x $NPERIODS"
+    jackd -R -P 80 -d alsa -d "hw:$CARD" -r "$RATE" -p "$PERIOD" -n "$NPERIODS" &
+    JACK_PID=$!
+fi
 
 if ! jack_wait -w -t 15 >/dev/null; then
     echo "ERREUR : JACK n'a pas démarré"

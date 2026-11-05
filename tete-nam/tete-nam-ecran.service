@@ -1,6 +1,10 @@
 [Unit]
 Description=Tete NAM - interface tactile sur l'ecran de la tete
-After=tete-nam-web.service systemd-user-sessions.service plymouth-quit-wait.service
+After=tete-nam-web.service systemd-user-sessions.service plymouth-start.service
+# Comme un gestionnaire de connexion : c'est nous qui fermons le logo de
+# démarrage (Plymouth), au moment où l'interface prend l'écran
+Conflicts=plymouth-quit.service
+After=plymouth-quit.service
 Wants=tete-nam-web.service
 # L'écran remplace la console texte sur tty1
 Conflicts=getty@tty1.service
@@ -21,6 +25,9 @@ StandardOutput=journal
 StandardError=journal
 UtmpIdentifier=tty1
 UtmpMode=user
+ExecStartPre=/opt/tete-nam/ecran.sh --attendre
+# Le logo reste à l'écran jusqu'à ce que l'interface s'affiche par-dessus
+ExecStartPre=-+/usr/bin/plymouth quit --retain-splash
 ExecStart=/opt/tete-nam/ecran.sh
 Restart=always
 RestartSec=3

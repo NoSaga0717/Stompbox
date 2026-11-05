@@ -58,10 +58,12 @@ if [ "$ECRAN" = oui ]; then
     # Le nom du paquet Chromium dépend de la version de Raspberry Pi OS
     if apt-cache policy chromium 2>/dev/null | grep -q 'Candidate: [0-9]'; then NAV=chromium
     else NAV=chromium-browser; fi
-    PAQUETS="$PAQUETS cage $NAV wlr-randr fonts-dejavu-core"
+    PAQUETS="$PAQUETS cage $NAV wlr-randr fonts-dejavu-core plymouth"
 fi
 # shellcheck disable=SC2086
 DEBIAN_FRONTEND=noninteractive apt-get install -y $PAQUETS
+# Texte du pourcentage sur le logo de démarrage (facultatif)
+[ "$ECRAN" = oui ] && { DEBIAN_FRONTEND=noninteractive apt-get install -y plymouth-label || true; }
 
 etape "3/8 Compilation du moteur audio stompbox-jack (5 à 10 min la première fois)"
 sudo -u "$UTIL" git -C "$DEPOT" submodule update --init --recursive
@@ -90,7 +92,7 @@ install -d "$CIBLE"
 install -m 755 "$BINAIRE" "$CIBLE/stompbox-jack"
 install -m 755 "$ICI/run.sh" "$ICI/ecran.sh" "$ICI/cpu-performance.sh" "$ICI/tetenam.py" \
     "$ICI/web.py" "$ICI/moteur.py" "$ICI/midi.py" "$ICI/ble.py" "$ICI/wifi-secours.sh" "$CIBLE/"
-install -m 644 "$ICI/ui.html" "$ICI/chaine-init.txt" "$ICI/VERSION" "$CIBLE/"
+install -m 644 "$ICI/ui.html" "$ICI/chaine-init.txt" "$ICI/VERSION" "$ICI/demarrage/logo.png" "$CIBLE/"
 echo "$(cat "$ICI/VERSION") ($(git -C "$DEPOT" rev-parse --short HEAD 2>/dev/null || echo '?'))" > "$CIBLE/VERSION"
 ln -sf "$CIBLE/tetenam.py" /usr/local/bin/tete-nam
 ln -sf "$CIBLE/wifi-secours.sh" /usr/local/bin/tete-nam-wifi
@@ -151,20 +153,43 @@ if [ "$ECRAN" = oui ]; then
     [ -e "$CONFIG.avant-tete-nam" ] || cp "$CONFIG" "$CONFIG.avant-tete-nam"
     # Bloc à nous, entre deux marques : remplacé à chaque installation
     sed -i '/^# --- Tete NAM debut ---$/,/^# --- Tete NAM fin ---$/d' "$CONFIG"
+    OVERLAY=""
     if grep -v '^[[:space:]]*#' "$CONFIG" | grep -q 'dsi'; then
         echo "Une ligne d'écran DSI existe déjà dans $CONFIG : gardée telle quelle"
     else
         OVERLAY="dtoverlay=vc4-kms-dsi-7inch"
         [ "$PORT_DSI" = 0 ] && OVERLAY="$OVERLAY,dsi0"
-        cat >> "$CONFIG" <<EOF
+        echo "Écran DSI $PORT_DSI ajouté dans $CONFIG ($OVERLAY)"
+    fi
+    cat >> "$CONFIG" <<EOF
 # --- Tete NAM debut ---
 [all]
 # Écran tactile 7" DSI 800x480 (compatible écran officiel v1)
 $OVERLAY
+# Pas d'écran arc-en-ciel du firmware au démarrage
+disable_splash=1
 # --- Tete NAM fin ---
 EOF
-        echo "Écran DSI $PORT_DSI ajouté dans $CONFIG ($OVERLAY)"
+
+    # Démarrage sans texte : logo et barre de progression (Plymouth), console
+    # sans curseur clignotant, messages du noyau masqués
+    for opt in quiet splash loglevel=3 logo.nologo vt.global_cursor_default=0 plymouth.ignore-serial-consoles; do
+        grep -qw -- "$opt" "$CMDLINE" || sed -i "1 s/\$/ $opt/" "$CMDLINE"
+    done
+    THEME=/usr/share/plymouth/themes/tete-nam
+    mkdir -p "$THEME"
+    AVANT=$(cat "$THEME"/* 2>/dev/null | md5sum)
+    install -m 644 "$ICI/demarrage/tete-nam.plymouth" "$ICI/demarrage/tete-nam.script" \
+        "$ICI/demarrage/logo.png" "$ICI/demarrage/barre.png" "$ICI/demarrage/barre-fond.png" "$THEME/"
+    if [ "$(plymouth-set-default-theme 2>/dev/null)" != tete-nam ] || [ "$AVANT" != "$(cat "$THEME"/* | md5sum)" ]; then
+        echo "Logo de démarrage installé, mise à jour de l'initramfs (une minute)..."
+        plymouth-set-default-theme tete-nam
+        update-initramfs -u || echo "ATTENTION : initramfs non mis à jour (le logo apparaîtra un peu plus tard au démarrage)"
     fi
+    # Curseur invisible sur l'écran tactile
+    python3 "$ICI/demarrage/curseur-invisible.py" /usr/share/icons/tete-nam-invisible
+    # La console texte ne s'affiche plus sur l'écran (Ctrl+Alt+F2 en garde une)
+    systemctl disable getty@tty1.service 2>/dev/null || true
     # Session de connexion de l'écran (accès à l'affichage et au tactile)
     cat > /etc/pam.d/tete-nam-ecran <<EOF
 auth     required pam_unix.so nullok
@@ -174,6 +199,7 @@ session  required pam_systemd.so
 EOF
 else
     echo "Pas d'écran (--sans-ecran)"
+    systemctl enable getty@tty1.service 2>/dev/null || true
 fi
 
 etape "8/8 Démarrage automatique"
