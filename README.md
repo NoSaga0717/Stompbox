@@ -1,3 +1,5 @@
+> **Fork de la Tête NAM** : ce fork sert de moteur audio à la Tête NAM (tête d'ampli sur Raspberry Pi 5). Tout ce qui la concerne est dans [`tete-nam/`](tete-nam/README.md) : guide d'installation, interface tactile, appli Android. Le reste de ce README est celui du projet d'origine.
+
 <img width="400" alt="Image" src="https://github.com/user-attachments/assets/4e4ae15e-2f02-4046-99bd-34736ca5a4b1" />
 
 Stompbox is a guitar amplification and effects application, arranged as a digital version of a guitar pedalboard.

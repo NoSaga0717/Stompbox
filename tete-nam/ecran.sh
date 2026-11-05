@@ -14,11 +14,19 @@ URL="http://127.0.0.1:8080/?ecran=1"
 NAV=$(command -v chromium || command -v chromium-browser)
 [ -n "$NAV" ] || { echo "ERREUR : Chromium n'est pas installé"; exit 1; }
 
-# On attend la page web (au démarrage elle arrive quelques secondes après)
+# On attend la page web (au démarrage elle arrive quelques secondes après).
+# Le service lance d'abord « ecran.sh --attendre » : le logo de démarrage
+# reste affiché pendant ce temps.
 for i in $(seq 1 60); do
     curl -s -o /dev/null "http://127.0.0.1:8080/api/etat" && break
     sleep 1
 done
+[ "${1:-}" = --attendre ] && exit 0
+
+# Écran tactile : curseur invisible (thème installé par install.sh)
+if [ -d /usr/share/icons/tete-nam-invisible ]; then
+    export XCURSOR_THEME=tete-nam-invisible XCURSOR_SIZE=24
+fi
 
 # Profil jetable : rien ne s'accumule sur la carte SD, pas de « restaurer la session »
 PROFIL="${XDG_RUNTIME_DIR:-/tmp}/tete-nam-chromium"

@@ -87,6 +87,7 @@ MODELE_CONF = """\
 # (La chaîne d'effets et les presets ne sont pas ici : ils sont dans ~/tete-nam)
 
 # Carte son (nom ALSA, visible avec : cat /proc/asound/cards)
+# CARD=aucune : mode test sans carte son (l'interface marche, pas de son)
 CARD={CARD}
 
 # Fréquence d'échantillonnage : doit être celle des modèles (48 kHz en général)
