@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Tete NAM
+Description=Logo de la Tete NAM et barre de progression au demarrage
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/tete-nam
+ScriptFile=/usr/share/plymouth/themes/tete-nam/tete-nam.script

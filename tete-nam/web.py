@@ -647,6 +647,9 @@ class Gestionnaire(BaseHTTPRequestHandler):
         if chemin in ("/", "/ui"):
             with open(PAGE, "rb") as f:
                 self.envoyer(200, f.read(), "text/html; charset=utf-8")
+        elif chemin == "/logo.png" and os.path.exists(os.path.join(ICI, "logo.png")):
+            with open(os.path.join(ICI, "logo.png"), "rb") as f:
+                self.envoyer(200, f.read(), "image/png")
         elif chemin in LECTURES:
             try:
                 self.json(LECTURES[chemin]())

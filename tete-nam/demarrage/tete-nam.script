@@ -1,0 +1,59 @@
+# Écran de démarrage de la Tête NAM (Plymouth) : logo au centre, barre de
+# progression et pourcentage dessous. Plymouth estime la progression à partir
+# de la durée des démarrages précédents (le premier est approximatif).
+
+Window.SetBackgroundTopColor(0.067, 0.075, 0.090);      # #111317, comme l'interface
+Window.SetBackgroundBottomColor(0.067, 0.075, 0.090);
+
+L = Window.GetWidth();
+H = Window.GetHeight();
+
+logo.image = Image("logo.png");
+# Le logo prend au plus 70 % de la largeur et 55 % de la hauteur de l'écran
+k = Math.Min(L * 0.70 / logo.image.GetWidth(), H * 0.55 / logo.image.GetHeight());
+if (k < 1) logo.image = logo.image.Scale(logo.image.GetWidth() * k, logo.image.GetHeight() * k);
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetX() + (L - logo.image.GetWidth()) / 2);
+logo.sprite.SetY(Window.GetY() + H * 0.42 - logo.image.GetHeight() / 2);
+
+largeur = Math.Int(L * 0.45);
+haut_barre = Math.Max(4, Math.Int(H / 120));
+y_barre = Window.GetY() + Math.Int(H * 0.80);
+x_barre = Window.GetX() + Math.Int((L - largeur) / 2);
+
+fond.image = Image("barre-fond.png").Scale(largeur, haut_barre);
+fond.sprite = Sprite(fond.image);
+fond.sprite.SetPosition(x_barre, y_barre, 1);
+
+plein.original = Image("barre.png");
+plein.sprite = Sprite();
+plein.sprite.SetPosition(x_barre, y_barre, 2);
+
+texte.sprite = Sprite();
+dernier = -1;
+
+fun progression(duree, avance) {
+    p = Math.Int(avance * 100);
+    if (p > 99) p = 99;
+    if (p == dernier) return;
+    dernier = p;
+    w = Math.Max(1, Math.Int(largeur * p / 100));
+    plein.sprite.SetImage(plein.original.Scale(w, haut_barre));
+    t = Image.Text(p + " %", 0.54, 0.56, 0.60, 1, "Sans 12");
+    if (t) {
+        texte.sprite.SetImage(t);
+        texte.sprite.SetPosition(Window.GetX() + (L - t.GetWidth()) / 2, y_barre + haut_barre + 10, 3);
+    }
+}
+Plymouth.SetBootProgressFunction(progression);
+
+# Messages éventuels (disque à vérifier, etc.) : une ligne sous la barre
+message.sprite = Sprite();
+fun afficher_message(txt) {
+    m = Image.Text(txt, 0.9, 0.9, 0.9, 1, "Sans 11");
+    if (m) {
+        message.sprite.SetImage(m);
+        message.sprite.SetPosition(Window.GetX() + (L - m.GetWidth()) / 2, Window.GetY() + H - m.GetHeight() - 12, 4);
+    }
+}
+Plymouth.SetMessageFunction(afficher_message);

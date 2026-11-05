@@ -13,6 +13,15 @@ html,body{height:100%;background:var(--fond)}
 body{color:var(--texte);font:15px/1.3 system-ui,"DejaVu Sans",Arial,sans-serif;display:flex;flex-direction:column;
   overflow:hidden;user-select:none;-webkit-user-select:none;max-width:1200px;margin:0 auto}
 body.ecran{cursor:none}
+body.ecran *{cursor:none!important}
+/* Écran de la tête : logo tant que le moteur audio démarre (suite du logo de démarrage) */
+#demarrage{display:none;position:fixed;inset:0;z-index:100;background:var(--fond);flex-direction:column;align-items:center;justify-content:center;gap:28px}
+body.ecran #demarrage.ouvert{display:flex}
+#demarrage img{max-width:70%;max-height:55%}
+#demarrage .dbarre{width:45%;height:4px;border-radius:2px;background:var(--trait);overflow:hidden}
+#demarrage .dbarre div{width:30%;height:100%;background:var(--accent);animation:dva 1.4s ease-in-out infinite alternate}
+@keyframes dva{from{transform:translateX(-100%)}to{transform:translateX(333%)}}
+#demarrage .dtxt{color:var(--doux);font-size:14px}
 button{font:inherit;color:inherit;background:var(--carte2);border:1px solid var(--trait2);border-radius:10px;padding:8px 12px;cursor:pointer;touch-action:manipulation}
 button:active{filter:brightness(1.3)}
 button.prim{background:var(--accent);color:#111;border-color:var(--accent);font-weight:700}
@@ -133,6 +142,7 @@ canvas{width:100%;height:70px;display:block;margin-top:8px}
   #boutons{align-content:flex-start;padding-top:14px}
 }
 </style></head><body>
+<div id="demarrage" class="ouvert"><img src="/logo.png" alt="Tête NAM" onerror="this.style.display='none'"><div class="dbarre"><div></div></div><div class="dtxt">Démarrage du moteur audio…</div></div>
 <div id="bandeau"></div>
 <header>
   <button class="fleche" id="prec" aria-label="Preset précédent">◀</button>
@@ -234,6 +244,8 @@ function dessinerHaut() {
   $("sdsp").innerHTML = "DSP <b style='color:" + (d == null ? "var(--doux)" : d < 70 ? "var(--ok)" : d < 85 ? "var(--moyen)" : "var(--mal)") + "'>" +
     (d == null ? "–" : Math.round(d) + " %") + "</b>" + (E.xruns ? " · <b style='color:var(--mal)'>" + E.xruns + " xr</b>" : "");
   $("stemp").textContent = E.temp == null ? "" : Math.round(E.temp) + " °C";
+  // Logo de démarrage (écran de la tête) : jusqu'au moteur prêt, 60 s au plus
+  if (E.moteur || performance.now() > 60000) $("demarrage").classList.remove("ouvert");
   const b = $("bandeau");
   b.classList.toggle("ouvert", !E.moteur);
   b.textContent = E.moteur ? "" : "Le moteur audio ne répond pas (redémarrage en cours ?)";
