@@ -10,7 +10,9 @@ set -u
 
 PROFIL=tete-nam-hotspot
 IFACE=wlan0
-IP=10.42.0.1
+# Pas 10.42.0.x (adresses par défaut du partage de connexion de NetworkManager) :
+# un réseau câblé qui les utilise entrait en collision avec le hotspot.
+IP=192.168.77.1
 
 MODE=auto; ATTENTE=45; SSID=TeteNAM; MOT_DE_PASSE=tetenam2026; CANAL=6
 [ -r /etc/tete-nam-wifi.conf ] && source /etc/tete-nam-wifi.conf
@@ -28,6 +30,12 @@ connexion_active() {
     nmcli -t -f GENERAL.STATE,GENERAL.CONNECTION dev show "$IFACE" 2>/dev/null |
         awk -F: '/^GENERAL.STATE/ {etat=$2} /^GENERAL.CONNECTION/ {c=$2}
                  END { if (etat ~ /^100/) print c }'
+}
+
+# Connexion câblée active (vide si aucune) : la tête est déjà joignable
+cable_actif() {
+    nmcli -t -f TYPE,STATE,CONNECTION dev 2>/dev/null |
+        awk -F: '$1 == "ethernet" && $2 == "connected" {print $3; exit}'
 }
 
 # Crée ou met à jour le profil hotspot à partir des réglages
@@ -97,9 +105,13 @@ auto() {
         if [ -n "$c" ] && [ "$c" != "$PROFIL" ]; then
             log "connecté à « $c », pas besoin de hotspot"; return 0
         fi
+        e=$(cable_actif)
+        if [ -n "$e" ]; then
+            log "câble réseau branché (« $e »), pas besoin de hotspot"; return 0
+        fi
         sleep 1
     done
-    log "aucun Wi-Fi connu"
+    log "aucun Wi-Fi connu ni câble réseau"
     hotspot
 }
 

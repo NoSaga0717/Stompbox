@@ -114,11 +114,11 @@ Autres commandes : `tete-nam presets` (liste), `tete-nam preset "Nom"` (charger)
 
 ### Sans Wi-Fi (studio) : le réseau de la tête
 
-Au démarrage, la tête attend jusqu'à 45 secondes un Wi-Fi qu'elle connaît. Si elle n'en trouve aucun, elle crée **son propre réseau Wi-Fi** :
+Au démarrage, la tête attend jusqu'à 45 secondes un Wi-Fi qu'elle connaît ou un câble réseau. Si elle ne trouve ni l'un ni l'autre, elle crée **son propre réseau Wi-Fi** :
 
 1. Sur le téléphone, connectez-vous au Wi-Fi **TeteNAM** (mot de passe `tetenam2026` par défaut, à changer).
-2. Ouvrez **http://tetenam.local:8080**. Si le nom ne répond pas, ouvrez **http://10.42.0.1:8080**.
-3. En SSH : `ssh alex@10.42.0.1`.
+2. Ouvrez **http://tetenam.local:8080**. Si le nom ne répond pas, ouvrez **http://192.168.77.1:8080**.
+3. En SSH : `ssh alex@192.168.77.1`.
 
 Changer le nom, le mot de passe ou le comportement : `sudo nano /etc/tete-nam-wifi.conf` (`MODE` = `auto`, `hotspot` ou `maison` ; `SSID`, `MOT_DE_PASSE`, `CANAL`). Commandes : `tete-nam-wifi etat`, `tete-nam-wifi hotspot`, `tete-nam-wifi maison`.
 
