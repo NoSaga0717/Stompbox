@@ -95,6 +95,7 @@ class Pont:
         self.fichier = None             # bytearray pendant un envoi de fichier
         self.nom_fichier = ""
         self.mtu = 23
+        self.mtu_bluez = 0              # MTU réel du lien, donné par BlueZ à chaque écriture
         self.reponse = None             # caractéristique REPONSE (pour notifier)
         self.travail = queue.Queue()
         threading.Thread(target=self.boucle, daemon=True).start()
@@ -102,7 +103,7 @@ class Pont:
     # Appelé depuis la boucle D-Bus
     def recu_commande(self, octets, mtu):
         if mtu:
-            self.mtu = mtu
+            self.mtu = self.mtu_bluez = mtu
         self.entree += octets
         while b"\n" in self.entree:
             ligne, _, reste = bytes(self.entree).partition(b"\n")
@@ -112,7 +113,7 @@ class Pont:
 
     def recu_fichier(self, octets, mtu):
         if mtu:
-            self.mtu = mtu
+            self.mtu = self.mtu_bluez = mtu
         if self.fichier is None:
             return
         if len(self.fichier) + len(octets) > TAILLE_MAX:
@@ -140,8 +141,12 @@ class Pont:
     def traiter(self, d):
         op = d.get("op")
         if op == "bonjour":
+            # Le MTU annoncé par le téléphone peut dépasser celui que BlueZ a
+            # réellement négocié : un morceau trop long est alors tronqué sans
+            # erreur et les longues réponses (la page) n'arrivent jamais entières.
             if d.get("mtu"):
-                self.mtu = max(23, min(517, int(d["mtu"])))
+                m = max(23, min(517, int(d["mtu"])))
+                self.mtu = min(m, self.mtu_bluez) if self.mtu_bluez else m
             return {"ok": True, "nom": NOM, "version": 2}
         if op == "page":
             html, sig = lire_page()
@@ -180,9 +185,13 @@ class Pont:
         GLib.idle_add(self._notifier, morceaux)
 
     def _notifier(self, morceaux):
+        # Par paquets de 8 toutes les 5 ms : envoyer des dizaines de
+        # notifications d'un coup peut déborder la file de BlueZ (morceaux perdus).
         if self.reponse is not None:
-            for m in morceaux:
+            for m in morceaux[:8]:
                 self.reponse.notifier(m)
+            if len(morceaux) > 8:
+                GLib.timeout_add(5, self._notifier, morceaux[8:])
         return False
 
 
