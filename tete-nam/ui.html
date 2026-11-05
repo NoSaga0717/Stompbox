@@ -141,6 +141,78 @@ canvas{width:100%;height:70px;display:block;margin-top:8px}
   #panneau{min-height:260px}
   #boutons{align-content:flex-start;padding-top:14px}
 }
+/* ===== Thème « studio » : gris anthracite plat, accents turquoise, dégradés
+   par famille d'effets, titres fins en capitales espacées. Ce bloc ne change
+   que l'apparence ; le retirer redonne le thème d'origine. ===== */
+:root{
+  --fond:#141414;--barre:#171717;--carte:#1d1d1d;--carte2:#242424;--trait:#2a2a2a;--trait2:#383838;
+  --texte:#e4e4e4;--doux:#8a8a8a;--accent:#5fcfd0;--ok:#5fcfd0;--moyen:#e0b04a;--mal:#ff6b6b;
+  --piste:#2f2f2f;--arc:3;--piste-ep:2.5;
+  --g-dyn:linear-gradient(160deg,#79dcd8,#2c5ca8);
+  --g-drive:linear-gradient(160deg,#ea6a4f,#7a32b8);
+  --g-nam:linear-gradient(160deg,#a35ce0,#33206e);
+  --g-filtre:linear-gradient(160deg,#a8e07c,#2c7158);
+  --g-mod:linear-gradient(160deg,#8aa8ff,#4b2fa8);
+  --g-temps:linear-gradient(160deg,#5aa6ea,#2b2f80);
+  --g-util:linear-gradient(160deg,#6b6b6b,#333);
+}
+body{font-family:Montserrat,"Jost","Futura","Century Gothic",system-ui,"DejaVu Sans",Arial,sans-serif;letter-spacing:.02em}
+button{background:transparent;border:1px solid var(--trait2);border-radius:8px;text-transform:uppercase;font-size:13px;letter-spacing:.12em;font-weight:500}
+button.prim{background:var(--accent);border-color:var(--accent);color:#0e1414}
+header{background:var(--barre);border-bottom:1px solid var(--trait)}
+header .fleche{border-color:transparent;font-size:16px;color:var(--doux)}
+#presetBtn{text-transform:none;letter-spacing:.02em}
+#num{color:var(--accent);font-weight:400}
+#pnom{font-weight:500;letter-spacing:.06em}
+#saveBtn{border-color:var(--trait2)}
+#saveBtn.modif{border-color:var(--accent);color:var(--accent)}
+#tunerBtn{border-color:transparent;color:var(--doux)}
+#statBtn{text-transform:none;letter-spacing:.04em}
+/* Chaîne : tuiles en dégradé, comme des pavés lumineux */
+.io{background:var(--carte);border:1px solid var(--trait2);color:var(--doux);letter-spacing:.1em}
+.fil{height:2px;background:var(--trait2)}
+.blk{border-radius:10px;border:1px solid rgba(255,255,255,.08);font-weight:500;text-transform:uppercase;letter-spacing:.1em;font-size:12px;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+.blk .st{text-transform:none;letter-spacing:.02em}
+.cat-dyn{background:var(--g-dyn)}.cat-drive{background:var(--g-drive)}.cat-nam{background:var(--g-nam)}
+.cat-filtre{background:var(--g-filtre)}.cat-mod{background:var(--g-mod)}.cat-temps{background:var(--g-temps)}.cat-util{background:var(--g-util)}
+.blk.off{background:var(--carte2)!important;color:#5a5a5a;box-shadow:none}
+.blk.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 0 18px rgba(95,207,208,.45)}
+.blk.glisse{box-shadow:0 10px 28px rgba(0,0,0,.6),0 0 0 2px var(--accent)}
+.plus{border:1px dashed var(--trait2);background:transparent;color:var(--doux);font-weight:300;letter-spacing:0}
+#aide{letter-spacing:.06em}
+/* Panneau du bloc : carte plate, titre fin espacé */
+#panneau{background:var(--carte);border:1px solid var(--trait);border-radius:12px}
+#ptitre{font-weight:500;text-transform:uppercase;letter-spacing:.28em;font-size:15px}
+#ptitre .mod{text-transform:none;letter-spacing:.04em}
+.seg{border:none;gap:4px}
+.seg button{background:transparent;border:none;color:var(--doux);letter-spacing:.2em}
+.seg button.on{background:transparent;color:var(--accent);font-weight:500}
+.bascule{color:var(--doux)}
+.bascule.on{background:transparent;color:var(--accent);border-color:var(--accent);font-weight:500}
+button.danger{border-color:transparent}
+/* Boutons rotatifs : fin anneau, valeur au centre, nom en capitales au-dessus */
+.k{position:relative;display:flex;flex-direction:column;align-items:center}
+.k .lib{order:-1;text-transform:uppercase;letter-spacing:.14em;font-size:11px;color:#cfcfcf;margin-bottom:4px;font-weight:500}
+.k.av .lib{color:var(--doux)}
+.k svg{margin:0 auto}
+.k .val{position:absolute;left:0;right:0;top:calc(50% + 7px);transform:translateY(-50%);font-weight:400;font-size:13px;letter-spacing:0;white-space:nowrap;pointer-events:none}
+@media (max-width:620px){.k .val{font-size:12px}}
+.k.actif svg circle.fondk{stroke:var(--accent)}
+.inter .lib{text-transform:uppercase;letter-spacing:.14em;font-size:11px}
+/* Fenêtres */
+#feuille{background:var(--carte);border:1px solid var(--trait2);border-radius:12px}
+#ftitre{font-weight:500;text-transform:uppercase;letter-spacing:.24em;font-size:15px}
+.grille button{border-radius:10px;text-transform:uppercase;letter-spacing:.1em;font-size:12px;font-weight:500}
+.cattitre,.etiq{text-transform:uppercase;letter-spacing:.18em;font-size:11px}
+.liste .ligne > button:first-child{text-transform:none;letter-spacing:.04em}
+.liste button.courant{border-color:var(--accent);color:var(--accent)}
+.stats div{background:var(--carte2);border-radius:8px}
+.stats small{text-transform:uppercase;letter-spacing:.14em;font-size:10px}
+.stats b{font-weight:400}
+.champ{border-radius:8px}
+.clavier button{text-transform:none;letter-spacing:0}
+#aindic{background:var(--accent)}
+#anote{font-weight:300}
 </style></head><body>
 <div id="demarrage" class="ouvert"><img src="/logo.png" alt="Tête NAM" onerror="this.style.display='none'"><div class="dbarre"><div></div></div><div class="dtxt">Démarrage du moteur audio…</div></div>
 <div id="bandeau"></div>
@@ -397,9 +469,10 @@ function arc(frac) {
   const p = a => [cx + R * Math.cos(a), cy + R * Math.sin(a)];
   const [x0, y0] = p(a0), [x1, y1] = p(a1), [xe, ye] = p(a0 + 1.5 * Math.PI);
   const grand = (a1 - a0) > Math.PI ? 1 : 0;
-  return `<path d="M${x0} ${y0} A${R} ${R} 0 1 1 ${xe} ${ye}" stroke="#2c3038" stroke-width="7" fill="none" stroke-linecap="round"/>
-    <path d="M${x0} ${y0} A${R} ${R} 0 ${grand} 1 ${x1} ${y1}" stroke="var(--accent)" stroke-width="7" fill="none" stroke-linecap="round"/>
-    <circle class="fondk" cx="41" cy="41" r="25" fill="var(--carte2)" stroke="transparent" stroke-width="2"/>`;
+  // Épaisseurs et couleurs prises dans le thème (variables CSS)
+  return `<path d="M${x0} ${y0} A${R} ${R} 0 1 1 ${xe} ${ye}" style="stroke:var(--piste,#2c3038);stroke-width:var(--piste-ep,7)" fill="none" stroke-linecap="round"/>
+    <path d="M${x0} ${y0} A${R} ${R} 0 ${grand} 1 ${x1} ${y1}" style="stroke:var(--accent);stroke-width:var(--arc,7)" fill="none" stroke-linecap="round"/>
+    <circle class="fondk" cx="41" cy="41" r="25" fill="transparent" stroke="transparent" stroke-width="1.5"/>`;
 }
 function fraction(q, v) { return q.max > q.min ? (Math.min(q.max, Math.max(q.min, +v)) - q.min) / (q.max - q.min) : 0; }
 function bouton(b, q) {
@@ -668,7 +741,8 @@ function graphe(c, h) {
   const x = c.getContext("2d"), w = c.width = c.clientWidth * devicePixelRatio, ht = c.height = 70 * devicePixelRatio;
   x.clearRect(0, 0, w, ht);
   x.strokeStyle = "#333"; x.beginPath(); [70, 85].forEach(s => { const y = ht - s / 100 * ht; x.moveTo(0, y); x.lineTo(w, y); }); x.stroke();
-  x.strokeStyle = "#ffb547"; x.lineWidth = 2 * devicePixelRatio; x.beginPath();
+  x.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#ffb547";
+  x.lineWidth = 2 * devicePixelRatio; x.beginPath();
   let premier = true;
   h.forEach((v, i) => { if (v == null) { premier = true; return; } const px = i / 119 * w, py = ht - Math.min(v, 100) / 100 * ht; premier ? x.moveTo(px, py) : x.lineTo(px, py); premier = false; });
   x.stroke();

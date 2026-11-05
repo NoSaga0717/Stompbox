@@ -34,10 +34,10 @@ rm -rf "$PROFIL"
 
 # Rotation éventuelle, appliquée dans cage avant de lancer le navigateur
 LANCER="exec \"$NAV\" --kiosk --app=\"$URL\" --ozone-platform=wayland --user-data-dir=\"$PROFIL\" \
- --noerrdialogs --disable-infobars --no-first-run --disable-translate --disable-features=Translate \
+ --noerrdialogs --disable-infobars --no-first-run --disable-translate --disable-features=Translate,TranslateUI \
  --disable-pinch --overscroll-history-navigation=0 --disable-session-crashed-bubble \
  --check-for-update-interval=31536000 --password-store=basic --autoplay-policy=no-user-gesture-required \
- --disk-cache-size=1 --enable-features=OverlayScrollbar"
+ --disk-cache-size=1 --enable-features=OverlayScrollbar --lang=fr --accept-lang=fr"
 if [ "${ECRAN_ROTATION:-0}" != 0 ] && command -v wlr-randr >/dev/null; then
     LANCER="for s in \$(wlr-randr | awk '/^[^ ]/{print \$1}'); do wlr-randr --output \$s --transform $ECRAN_ROTATION; done; $LANCER"
 fi
