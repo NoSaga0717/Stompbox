@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.TeteNAM" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#111317</item>
-        <item name="android:statusBarColor">#111317</item>
-        <item name="android:navigationBarColor">#111317</item>
+        <item name="android:windowBackground">#0B0A09</item>
+        <item name="android:statusBarColor">#0B0A09</item>
+        <item name="android:navigationBarColor">#0B0A09</item>
     </style>
 </resources>
