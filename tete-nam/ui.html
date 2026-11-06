@@ -223,6 +223,46 @@ button.danger{border-color:transparent}
 @media (max-width:620px){#panneau{min-height:0}#boutons{padding-top:8px}}
 #aindic{background:var(--accent)}
 #anote{font-weight:300}
+/* ===== Charte NO:ID : noir profond, or brossé, capitales fines espacées
+   (comme la façade de la tête). Remplace les couleurs du thème « studio »
+   au-dessus ; ne change que l'apparence. ===== */
+:root{
+  --fond:#0b0a09;--barre:#0f0e0c;--carte:#141310;--carte2:#1b1915;--trait:#26231d;--trait2:#3a342a;
+  --texte:#ece6da;--doux:#8f877a;--accent:#d6ac5a;--or-clair:#f0d58f;--ok:#d6ac5a;--moyen:#e6a33a;--mal:#e5674f;
+  --piste:#2a2620;--arc:3;--piste-ep:2.5;
+  --tuile:linear-gradient(165deg,#2a261f 0%,#16140f 60%,#0f0e0b 100%);
+}
+body{background:radial-gradient(ellipse at 50% 0%,#1a1712 0%,var(--fond) 65%) fixed,var(--fond)}
+button.prim{background:linear-gradient(180deg,var(--or-clair),var(--accent));border-color:var(--accent);color:#14110b}
+header{background:linear-gradient(180deg,#14120f,var(--barre));border-bottom:1px solid rgba(214,172,90,.25)}
+#num{color:var(--accent)}
+#pnom{color:var(--texte);letter-spacing:.14em;text-transform:uppercase;font-weight:400}
+/* Tuiles : pavés noirs, liseré doré, couleur de la famille en bas */
+.blk{background:var(--tuile)!important;color:var(--texte);border:1px solid rgba(214,172,90,.35);box-shadow:0 6px 16px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.04)}
+.blk .ic{color:var(--accent)}
+.blk .st{color:var(--doux)}
+.cat-dyn{--fam:#c9a36a}.cat-drive{--fam:#d0703f}.cat-nam{--fam:#e3c070}
+.cat-filtre{--fam:#9aa36a}.cat-mod{--fam:#a88bc9}.cat-temps{--fam:#7aa0b8}.cat-util{--fam:#7a7468}
+.blk[class*="cat-"]{box-shadow:0 6px 16px rgba(0,0,0,.5),inset 0 -3px 0 var(--fam,var(--accent))}
+.cat-nam.blk{border-color:rgba(240,213,143,.6)}
+.blk.off{background:var(--carte2)!important;color:#5c574d;border-color:var(--trait);box-shadow:none}
+.blk.off .ic{color:#5c574d}
+.blk.sel{border-color:var(--or-clair);box-shadow:0 0 0 1px var(--or-clair),0 0 22px rgba(214,172,90,.45),inset 0 -3px 0 var(--fam,var(--accent))}
+.blk.glisse{box-shadow:0 10px 28px rgba(0,0,0,.7),0 0 0 2px var(--accent)}
+.grille button{background:var(--tuile);border:1px solid rgba(214,172,90,.3);color:var(--texte)}
+.grille button span{color:var(--accent)}
+.io{border-color:rgba(214,172,90,.35);color:var(--accent)}
+.fil{background:linear-gradient(90deg,rgba(214,172,90,.15),rgba(214,172,90,.45),rgba(214,172,90,.15))}
+.plus{border-color:rgba(214,172,90,.45);color:var(--accent)}
+/* Panneaux : noir, filet doré fin */
+#panneau,#feuille{background:linear-gradient(180deg,#16140f,var(--carte));border-color:rgba(214,172,90,.22)}
+#ptitre,#ftitre{color:var(--or-clair);font-weight:400}
+/* Boutons rotatifs : capuchon noir, anneau doré lumineux */
+.k svg circle.fondk{fill:#0a0908;stroke:rgba(214,172,90,.18)}
+.k svg path:nth-of-type(2){filter:drop-shadow(0 0 3px rgba(214,172,90,.7))}
+.k .val{color:var(--texte)}
+.k .lib{color:#d9cfbd}
+#demarrage{background:#000}
 </style></head><body>
 <div id="demarrage" class="ouvert"><img src="/logo.png" alt="Tête NAM" onerror="this.style.display='none'"><div class="dbarre"><div></div></div><div class="dtxt">Démarrage du moteur audio…</div></div>
 <div id="bandeau"></div>

@@ -80,7 +80,7 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         tete = Tete(applicationContext)
 
-        val fond = Color.parseColor("#111317")
+        val fond = Color.parseColor("#0B0A09")
         val racine = FrameLayout(this).apply { setBackgroundColor(fond) }
 
         web = WebView(this).apply {
@@ -109,12 +109,12 @@ class MainActivity : ComponentActivity() {
             text = "Tête NAM"
             textSize = 28f
             typeface = Typeface.DEFAULT_BOLD
-            setTextColor(Color.parseColor("#F5A623"))
+            setTextColor(Color.parseColor("#D6AC5A"))
             gravity = Gravity.CENTER
         })
         etatTexte = TextView(this).apply {
             textSize = 17f
-            setTextColor(Color.parseColor("#E8E9EC"))
+            setTextColor(Color.parseColor("#ECE6DA"))
             gravity = Gravity.CENTER
             setPadding(0, 32, 0, 32)
         }
@@ -130,7 +130,7 @@ class MainActivity : ComponentActivity() {
         bandeau = TextView(this).apply {
             textSize = 14f
             setTextColor(Color.BLACK)
-            setBackgroundColor(Color.parseColor("#F5A623"))
+            setBackgroundColor(Color.parseColor("#D6AC5A"))
             gravity = Gravity.CENTER
             setPadding(16, 12, 16, 12)
             visibility = View.GONE
