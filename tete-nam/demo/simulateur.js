@@ -71,6 +71,30 @@
     const e = force * Math.exp(-(t - attaque) * 1.6) * (0.9 + 0.1 * Math.sin(t * 40));
     return {ok: true, rms: e * 0.5, grave: e * (0.25 + 0.15 * Math.sin(t * 0.7)), aigu: e * 0.4, crete: Math.min(1, e * 0.9)};
   }
+  // Wi-Fi simulé : quelques réseaux, « Studio » est enregistré
+  const wifi = {ssid: "", hotspot: true, connus: ["Studio"], resultat: null,
+    reseaux: [["Studio", 78, true], ["Box-Maison", 64, true], ["Voisin 5G", 41, true], ["Café gratuit", 30, false]]};
+  function wifiSimule() {
+    return {ok: true, ssid: wifi.ssid, ip: wifi.ssid ? "192.168.1.42" : "192.168.77.1", hotspot: !wifi.ssid && wifi.hotspot,
+      cable: "", hotspot_nom: "TeteNAM", resultat: wifi.resultat,
+      reseaux: wifi.reseaux.map(([n, sig, sec]) => ({ssid: n, signal: sig, securise: sec, actif: n === wifi.ssid, connu: wifi.connus.includes(n)}))};
+  }
+  function actionWifi(d) {
+    if (d.action === "connecter") {
+      const n = wifi.reseaux.find(r => r[0] === d.ssid);
+      const ok = n && (!n[2] || wifi.connus.includes(d.ssid) || (d.mdp || "").length >= 8);
+      wifi.resultat = {etat: "en_cours", ssid: d.ssid, message: `Connexion à « ${d.ssid} »…`, t: Date.now() / 1000};
+      setTimeout(() => {
+        if (ok) { wifi.ssid = d.ssid; if (!wifi.connus.includes(d.ssid)) wifi.connus.push(d.ssid); }
+        wifi.resultat = {etat: ok ? "ok" : "echec", ssid: d.ssid, t: Date.now() / 1000, message: ok ?
+          `Connecté à « ${d.ssid} » (192.168.1.42). Page : http://tetenam.local:8080` :
+          `Connexion à « ${d.ssid} » impossible : mot de passe refusé ou réseau trop loin.`};
+      }, 2500);
+    } else if (d.action === "oublier") {
+      wifi.connus = wifi.connus.filter(n => n !== d.ssid); if (wifi.ssid === d.ssid) wifi.ssid = "";
+    } else if (d.action === "hotspot") { wifi.ssid = ""; wifi.hotspot = true; }
+    return {ok: true};
+  }
   function sauver() { try { localStorage.setItem(CLE, JSON.stringify(s)); } catch (e) { /* pas grave */ } }
   function change() { s.modifie = true; rev++; sauver(); }
   const noms = () => Object.keys(s.presets).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
@@ -110,6 +134,7 @@
       midi: {canal: s.midi.canal, assignations: assignations()}}),
     "/api/config": () => copie(CFG),
     "/api/niveau": () => niveauSimule(),
+    "/api/wifi": () => wifiSimule(),
     "/api/systeme": () => ({histo: histo.slice(), temp: 53, throttled: "0x0", xruns: 0, dsp: histo[histo.length - 1],
       version: "démo", service: "active"}),
   };
@@ -176,6 +201,7 @@
     "/api/volume": d => { s.volume = Math.min(40, Math.max(-40, +d.valeur)); rev++; sauver(); return {ok: true}; },
     "/api/buffer": d => { s.buffer = +d.taille; rev++; sauver(); return {ok: true}; },
     "/api/accordeur": d => { accordeur = !!d.actif; return {ok: true}; },
+    "/api/wifi": d => actionWifi(d),
     "/api/veille": d => { s.veille = Math.max(0, Math.min(600, +d.secondes)); rev++; sauver(); return {ok: true}; },
   };
 

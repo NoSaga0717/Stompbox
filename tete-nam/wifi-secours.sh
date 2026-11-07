@@ -6,6 +6,13 @@
 #   tete-nam-wifi hotspot    passe sur le réseau de la tête
 #   tete-nam-wifi maison     repasse sur le Wi-Fi connu (hotspot si échec)
 #   tete-nam-wifi auto       ce que fait le démarrage (service tete-nam-wifi)
+#
+# Utilisés par la page Système (écran, navigateur, appli) via sudo :
+#   tete-nam-wifi chercher           relance une recherche des réseaux
+#   tete-nam-wifi connecter <nom>    se connecte (mot de passe lu sur l'entrée
+#                                    standard, vide = réseau connu ou ouvert)
+#   tete-nam-wifi oublier <nom>      efface le réseau enregistré
+# Résultat de la dernière connexion : /run/tete-nam-wifi.json
 set -u
 
 PROFIL=tete-nam-hotspot
@@ -115,6 +122,91 @@ auto() {
     hotspot
 }
 
+# --- Choix du réseau depuis la page Système --------------------------------
+
+RESULTAT=/run/tete-nam-wifi.json
+MDP_TEMP=/run/tete-nam-wifi.mdp
+
+# Écrit le résultat lu par la page : etat (en_cours, ok, echec), réseau, message
+resultat() {
+    python3 -c 'import json,sys,time; print(json.dumps({"etat": sys.argv[1], "ssid": sys.argv[2], "message": sys.argv[3], "t": time.time()}))' \
+        "$1" "$2" "$3" > "$RESULTAT.tmp" && chmod 644 "$RESULTAT.tmp" && mv "$RESULTAT.tmp" "$RESULTAT"
+}
+
+# Profils enregistrés pour ce nom de réseau (le nom du profil peut différer du SSID)
+profils_de() {
+    nmcli -t -f NAME,TYPE con show | while IFS= read -r ligne; do
+        type=${ligne##*:}; nom=${ligne%:*}; nom=${nom//\\:/:}
+        [ "$type" = "802-11-wireless" ] || continue
+        [ "$nom" = "$PROFIL" ] && continue
+        [ "$(nmcli -g 802-11-wireless.ssid con show "$nom" 2>/dev/null)" = "$1" ] && echo "$nom"
+    done
+}
+
+# La puce du Pi ne cherche pas les réseaux pendant qu'elle fait hotspot :
+# on coupe le hotspot le temps de la recherche (quelques secondes).
+chercher() {
+    if [ "$(connexion_active)" = "$PROFIL" ]; then
+        nmcli con down "$PROFIL" >/dev/null 2>&1
+        sleep 2
+        nmcli dev wifi rescan ifname "$IFACE" >/dev/null 2>&1
+        sleep 5
+        [ -z "$(connexion_active)" ] && nmcli con up "$PROFIL" >/dev/null 2>&1
+    else
+        nmcli dev wifi rescan ifname "$IFACE" >/dev/null 2>&1
+        sleep 4
+    fi
+    return 0
+}
+
+connecter() {
+    local ssid=$1 mdp="" nouveau=1 ok=0
+    if [ -r "$MDP_TEMP" ]; then mdp=$(cat "$MDP_TEMP"); rm -f "$MDP_TEMP"; fi
+    resultat en_cours "$ssid" "Connexion à « $ssid »…"
+    nmcli con down "$PROFIL" >/dev/null 2>&1
+    nmcli dev wifi rescan ifname "$IFACE" >/dev/null 2>&1
+    sleep 3
+    connus=$(profils_de "$ssid")
+    if [ -n "$connus" ] && [ -z "$mdp" ]; then
+        nouveau=0
+        nmcli --wait 30 con up id "$(echo "$connus" | head -1)" >/dev/null 2>&1 && ok=1
+    else
+        # Nouveau mot de passe : on repart d'un profil propre
+        echo "$connus" | while IFS= read -r p; do [ -n "$p" ] && nmcli con delete id "$p" >/dev/null 2>&1; done
+        if [ -n "$mdp" ]; then
+            nmcli --wait 30 dev wifi connect "$ssid" password "$mdp" ifname "$IFACE" >/dev/null 2>&1 && ok=1
+        else
+            nmcli --wait 30 dev wifi connect "$ssid" ifname "$IFACE" >/dev/null 2>&1 && ok=1
+        fi
+    fi
+    if [ "$ok" = 1 ] && [ "$(connexion_active)" != "" ] && [ "$(connexion_active)" != "$PROFIL" ]; then
+        ip4=$(nmcli -g IP4.ADDRESS dev show "$IFACE" | head -1 | cut -d/ -f1)
+        log "connecté à « $ssid » ($ip4)"
+        resultat ok "$ssid" "Connecté à « $ssid » ($ip4). Page : http://tetenam.local:8080"
+        return 0
+    fi
+    # Échec : on n'enregistre pas un mauvais mot de passe
+    if [ "$nouveau" = 1 ]; then
+        profils_de "$ssid" | while IFS= read -r p; do [ -n "$p" ] && nmcli con delete id "$p" >/dev/null 2>&1; done
+    fi
+    log "connexion à « $ssid » impossible"
+    if [ -z "$(cable_actif)" ]; then
+        # Pas de câble : on revient sur un Wi-Fi connu, sinon sur le hotspot
+        nmcli dev connect "$IFACE" >/dev/null 2>&1
+        sleep 8
+        [ -z "$(connexion_active)" ] && hotspot
+    fi
+    resultat echec "$ssid" "Connexion à « $ssid » impossible : mot de passe refusé ou réseau trop loin."
+    return 1
+}
+
+oublier() {
+    profils_de "$1" | while IFS= read -r p; do
+        [ -n "$p" ] && nmcli con delete id "$p" >/dev/null 2>&1 && log "réseau « $1 » oublié"
+    done
+    return 0
+}
+
 etat() {
     c=$(connexion_active)
     if [ -z "$c" ]; then
@@ -149,5 +241,24 @@ case "$ACTION" in
             exec systemd-run --quiet --collect --unit="tete-nam-wifi-$ACTION" "$0" "$ACTION"
         fi
         "$ACTION" ;;
-    *) sed -n '5,8p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+    chercher) besoin_root "$@"; chercher ;;
+    oublier)
+        besoin_root "$@"
+        [ -n "${2:-}" ] || { log "nom du réseau manquant"; exit 1; }
+        oublier "$2" ;;
+    connecter)
+        besoin_root "$@"
+        [ -n "${2:-}" ] || { log "nom du réseau manquant"; exit 1; }
+        if [ -z "${INVOCATION_ID:-}" ]; then
+            # Mot de passe lu sur l'entrée standard, gardé hors de la ligne de
+            # commande jusqu'au dernier moment ; la bascule continue en tâche de
+            # fond même si la page qui l'a demandée perd la connexion.
+            umask 077
+            IFS= read -r MDP || true
+            printf '%s' "$MDP" > "$MDP_TEMP"
+            resultat en_cours "$2" "Connexion à « $2 »…"
+            exec systemd-run --quiet --collect --unit="tete-nam-wifi-connecter-$(date +%s)" "$0" connecter "$2"
+        fi
+        connecter "$2" ;;
+    *) sed -n '5,15p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

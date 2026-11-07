@@ -95,7 +95,11 @@ On peut mettre autant de blocs NAM et d'effets qu'on veut, dans n'importe quel o
 
 **Presets** : toucher le nom du preset ouvre la liste (charger, supprimer, nouveau). **Enregistrer** écrase le preset actuel ou en crée un nouveau. Les modifications non enregistrées sont gardées même après une coupure de courant : la tête redémarre comme vous l'avez laissée, avec « modifié » affiché.
 
-**Système** (toucher la zone DSP) : courbe de charge, xruns, température, taille du buffer JACK (changer relance l'audio, 5 secondes de silence), calibration d'entrée (16 dBu pour la M4) et volume général.
+**Système** (toucher la zone DSP) : courbe de charge, xruns, température, taille du buffer JACK (changer relance l'audio, 5 secondes de silence), calibration d'entrée (16 dBu pour la M4), volume général, veille de l'écran et Wi-Fi.
+
+**Veille de l'écran** : après 7 secondes sans toucher l'écran de la tête, il n'affiche plus que le logo et une onde dorée qui suit le son en sortie. Un changement de preset (au pied) affiche son nom 3 secondes à la place de l'onde. Le premier toucher réveille l'écran sans appuyer sur rien. Délai réglable dans Système (Jamais, 7 s, 15 s, 30 s, 1 min). La page dans un navigateur et l'appli ne se mettent pas en veille.
+
+**Wi-Fi** (Système → Réseaux Wi-Fi…) : la tête cherche les réseaux autour d'elle ; toucher un réseau pour s'y connecter (mot de passe tapé sur le clavier de l'écran, touche `#+=` pour les symboles). Si la connexion échoue, la tête n'enregistre pas le mauvais mot de passe et revient sur un Wi-Fi connu ou sur son propre réseau. **Oublier** efface un réseau enregistré, **Réseau de la tête** repasse sur le hotspot. Marche aussi depuis l'appli Android (par Bluetooth) quand la tête n'a aucun réseau.
 
 ## 6. Vérifier que tout va bien
 

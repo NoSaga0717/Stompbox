@@ -267,6 +267,18 @@ header{background:linear-gradient(180deg,#14120f,var(--barre));border-bottom:1px
    la ligne d'effets est centrée dans la place au-dessus ===== */
 #chaineZone{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center}
 #panneau{margin:0;border-radius:14px 14px 0 0;border-bottom:none}
+/* Wi-Fi */
+.wetat{color:var(--doux);font-size:14px}
+.wetat b{color:var(--texte);font-weight:500}
+.wres{margin-top:8px;padding:8px 12px;border-radius:10px;font-size:14px;border:1px solid var(--trait2)}
+.wres.ok{border-color:var(--ok);color:var(--ok)}.wres.echec{border-color:var(--mal);color:var(--mal)}.wres.en_cours{color:var(--accent)}
+.wligne{display:flex;gap:8px;align-items:center}
+.wligne button[data-i]{flex:1;display:flex;align-items:center;gap:12px;text-align:left;min-width:0}
+.wnom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-transform:none;letter-spacing:0}
+.wtags{color:var(--doux);font-size:12px;white-space:nowrap}
+.wbarres{display:inline-flex;align-items:flex-end;gap:2px;height:16px}
+.wbarres i{width:4px;border-radius:1px;background:var(--trait2)}
+.wbarres i.on{background:var(--accent)}
 /* ===== Veille de l'écran de la tête : logo NO:ID et onde du son ===== */
 #veille{display:none;position:fixed;inset:0;z-index:90;background:#000;flex-direction:column;align-items:center;justify-content:center;gap:4vh;
   opacity:0;transition:opacity .7s ease}
@@ -664,29 +676,117 @@ function confirmer(texte, bouton, si) {
 }
 
 const RANGEES = ["azertyuiop", "qsdfghjklm", "wxcvbn-_'", "1234567890"];
-function demanderNom(titre, defaut, si) {
-  let h = `<input class="champ" id="nchamp" maxlength="40" value="${echap(defaut)}" ${ECRAN ? "readonly" : ""} autocomplete="off">`;
-  if (ECRAN) {
-    h += `<div class="clavier">` + RANGEES.map(r => `<div>${[...r].map(c => `<button data-c="${echap(c)}">${echap(c)}</button>`).join("")}</div>`).join("") +
-      `<div><button class="moyen" data-c="MAJ">⇧</button><button class="large" data-c=" ">espace</button><button class="moyen" data-c="EFF">⌫</button></div></div>`;
-  }
-  h += `<div class="boutonsfin"><button id="nnon">Annuler</button><button class="prim" id="noui">Enregistrer</button></div>`;
+const SYMBOLES = ["!@#$%&*()?", "+=/\\:;\"<>,.", "[]{}~^|`€£", "1234567890"];
+/* Saisie au clavier de l'écran (o.mdp : mot de passe Wi-Fi, majuscules au choix,
+   touche des symboles, 63 caractères) */
+function demanderNom(titre, defaut, si, o = {}) {
+  const max = o.mdp ? 63 : 40;
+  let h = (o.texte ? `<div style="margin-bottom:8px">${o.texte}</div>` : "") +
+    `<input class="champ" id="nchamp" maxlength="${max}" value="${echap(defaut)}" ${ECRAN ? "readonly" : ""} autocomplete="off"` +
+    (o.mdp ? ` autocapitalize="off" spellcheck="false"` : "") + `>`;
+  if (ECRAN) h += `<div class="clavier" id="nclavier"></div>`;
+  h += `<div class="boutonsfin"><button id="nnon">Annuler</button><button class="prim" id="noui">${echap(o.bouton || "Enregistrer")}</button></div>`;
   const f = ouvrir(titre, h), champ = f.querySelector("#nchamp");
-  let maj_ = true;
-  const touches = () => f.querySelectorAll(".clavier [data-c]").forEach(b => {
-    const c = b.dataset.c; if (c.length === 1) b.textContent = maj_ ? c.toUpperCase() : c; });
-  touches();
-  f.querySelectorAll(".clavier [data-c]").forEach(b => b.onclick = () => {
-    const c = b.dataset.c;
-    if (c === "MAJ") { maj_ = !maj_; touches(); return; }
-    if (c === "EFF") champ.value = champ.value.slice(0, -1);
-    else if (champ.value.length < 40) { champ.value += maj_ ? c.toUpperCase() : c; if (maj_) { maj_ = false; touches(); } }
-  });
+  let maj_ = !o.mdp, sym = false;
+  const dessiner = () => {
+    const k = f.querySelector("#nclavier"); if (!k) return;
+    k.innerHTML = (sym ? SYMBOLES : RANGEES).map(r => `<div>${[...r].map(c => {
+      const t = !sym && maj_ ? c.toUpperCase() : c;
+      return `<button data-c="${echap(t)}">${echap(t)}</button>`; }).join("")}</div>`).join("") +
+      `<div><button class="moyen" data-c="MAJ">${maj_ ? "⇧ MAJ" : "⇧"}</button>` +
+      (o.mdp ? `<button class="moyen" data-c="SYM">${sym ? "abc" : "#+="}</button>` : "") +
+      `<button class="large" data-c=" ">espace</button><button class="moyen" data-c="EFF">⌫</button></div>`;
+    k.querySelectorAll("[data-c]").forEach(b => b.onclick = () => {
+      const c = b.dataset.c;
+      if (c === "MAJ") { maj_ = !maj_; sym = false; return dessiner(); }
+      if (c === "SYM") { sym = !sym; return dessiner(); }
+      if (c === "EFF") champ.value = champ.value.slice(0, -1);
+      else if (champ.value.length < max) {
+        champ.value += c;
+        if (maj_ && !o.mdp) { maj_ = false; dessiner(); }
+      }
+    });
+  };
+  dessiner();
   if (!ECRAN) setTimeout(() => champ.focus(), 50);
-  f.querySelector("#nnon").onclick = fermer;
-  const ok = () => { const v = champ.value.trim(); if (!v) return message("Donnez un nom"); fermer(); si(v); };
+  f.querySelector("#nnon").onclick = o.annuler || fermer;
+  const ok = () => {
+    const v = o.mdp ? champ.value : champ.value.trim();
+    if (!v && !o.vide) return message(o.mdp ? "Tapez le mot de passe" : "Donnez un nom");
+    if (o.mdp && v.length < 8) return message("8 caractères minimum");
+    fermer(); si(v);
+  };
   f.querySelector("#noui").onclick = ok;
   champ.onkeydown = ev => { if (ev.key === "Enter") ok(); };
+}
+
+/* ---------- Wi-Fi (depuis la page Système) ---------- */
+function barres(signal) {
+  const n = signal >= 70 ? 4 : signal >= 50 ? 3 : signal >= 30 ? 2 : 1;
+  return `<span class="wbarres">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? "on" : ""}" style="height:${4 + i * 3}px"></i>`).join("")}</span>`;
+}
+function texteWifi(w) {
+  if (!w || w.absent) return "Pas de Wi-Fi sur cette machine";
+  const l = [];
+  if (w.ssid) l.push(`Connecté à <b>${echap(w.ssid)}</b>${w.ip ? " · " + echap(w.ip) : ""}`);
+  else if (w.hotspot) l.push(`Réseau de la tête <b>${echap(w.hotspot_nom || "TeteNAM")}</b> actif${w.ip ? " · " + echap(w.ip) : ""}`);
+  else l.push("Wi-Fi : aucune connexion");
+  if (w.cable) l.push("câble réseau branché");
+  return l.join(" · ");
+}
+let wifiTimer = null;
+async function feuilleWifi() {
+  const f = ouvrir("Wi-Fi", `<div id="wetat" class="wetat">Lecture…</div><div id="wres"></div>
+    <div class="rangs" style="margin-top:8px"><button id="wcherche">Rechercher</button><button id="whot">Réseau de la tête</button></div>
+    <div id="wliste" class="liste"></div>
+    <div class="pied">Si la page est ouverte par le Wi-Fi, elle se coupe pendant le changement : retrouvez-la ensuite sur http://tetenam.local:8080 depuis le nouveau réseau.</div>`);
+  let w = null, cherche = false;
+  const dessinerW = () => {
+    if (!$("wetat")) return;
+    $("wetat").innerHTML = texteWifi(w);
+    const r = w && w.resultat;
+    const recent = r && Date.now() / 1000 - r.t < 120;
+    $("wres").innerHTML = recent ? `<div class="wres ${r.etat}">${echap(r.message)}</div>` : "";
+    if (!w || w.absent) { $("wliste").innerHTML = ""; return; }
+    $("wliste").innerHTML = (w.reseaux || []).length ? w.reseaux.map((n, i) =>
+      `<div class="ligne wligne"><button data-i="${i}" class="${n.actif ? "courant" : ""}">${barres(n.signal)}
+        <span class="wnom">${echap(n.ssid)}</span><span class="wtags">${n.actif ? "connecté" : n.connu ? "enregistré" : ""}${n.securise ? " 🔒" : ""}</span></button>
+        ${n.connu ? `<button class="danger" data-oubli="${i}">Oublier</button>` : ""}</div>`).join("")
+      : `<div class="videmsg">${cherche ? "Recherche des réseaux…" : "Aucun réseau trouvé. Touchez « Rechercher »."}</div>`;
+    $("wliste").querySelectorAll("[data-i]").forEach(bt => bt.onclick = () => choisirReseau(w.reseaux[+bt.dataset.i]));
+    $("wliste").querySelectorAll("[data-oubli]").forEach(bt => bt.onclick = () => {
+      const n = w.reseaux[+bt.dataset.oubli];
+      confirmer(`Oublier le réseau « ${n.ssid} » ? Son mot de passe sera effacé de la tête.`, "Oublier", async () => {
+        await action("/api/wifi", {action: "oublier", ssid: n.ssid}); feuilleWifi();
+      });
+    });
+  };
+  const lire = async () => { try { w = await api("/api/wifi"); } catch (e) { /* page coupée pendant la bascule */ } dessinerW(); };
+  const chercher = async () => {
+    cherche = true; $("wcherche").disabled = true; $("wcherche").textContent = "Recherche…"; dessinerW();
+    await action("/api/wifi", {action: "chercher"});
+    cherche = false; if ($("wcherche")) { $("wcherche").disabled = false; $("wcherche").textContent = "Rechercher"; }
+    await lire();
+  };
+  f.querySelector("#wcherche").onclick = chercher;
+  f.querySelector("#whot").onclick = () => confirmer("Passer sur le réseau Wi-Fi créé par la tête ? Le Wi-Fi actuel est quitté.", "Passer", async () => {
+    await action("/api/wifi", {action: "hotspot"}); message("Bascule sur le réseau de la tête…", true); feuilleWifi();
+  });
+  await lire();
+  if (w && !w.absent) chercher();
+  clearInterval(wifiTimer);
+  wifiTimer = setInterval(() => { if (!$("wetat")) return clearInterval(wifiTimer); if (!cherche) lire(); }, 3000);
+}
+function choisirReseau(n) {
+  const go = async mdp => {
+    const r = await action("/api/wifi", {action: "connecter", ssid: n.ssid, mdp});
+    if (r) message(`Connexion à « ${n.ssid} »…`, true);
+    feuilleWifi();
+  };
+  if (n.actif) return message(`Déjà connecté à « ${n.ssid} »`, true);
+  if (n.connu || !n.securise)
+    return confirmer(`Se connecter à « ${n.ssid} » ?`, "Se connecter", () => go(""));
+  demanderNom(`Mot de passe de « ${n.ssid} »`, "", go, {mdp: true, bouton: "Se connecter", annuler: feuilleWifi});
 }
 
 function feuilleAjout() {
@@ -797,6 +897,7 @@ async function feuilleSysteme() {
   h += `<div class="etiq">Veille de l'écran de la tête (logo et onde du son)</div><div class="rangs">` +
     [[0, "Jamais"], [7, "7 s"], [15, "15 s"], [30, "30 s"], [60, "1 min"]].map(([v, t]) =>
       `<button class="${v === +(r.VEILLE ?? 7) ? "prim" : ""}" data-veille="${v}">${t}</button>`).join("") + `</div>`;
+  h += `<div class="etiq">Wi-Fi</div><div class="rangs"><span id="ywifi" class="wetat" style="flex:1 1 220px">…</span><button id="ywifibt">Réseaux Wi-Fi…</button></div>`;
   h += `<div class="etiq">Pédalier</div><div class="rangs"><button id="ymidi">Réglages MIDI…</button></div>`;
   h += `<div class="pied" id="ypied">${r.RATE / 1000} kHz · carte ${echap(r.CARD)}</div>`;
   const f = ouvrir("Système", h);
@@ -823,6 +924,8 @@ async function feuilleSysteme() {
   });
   const env = f.querySelector("#yenvoi"); if (env) env.onclick = envoyerFichiers;
   f.querySelector("#ymidi").onclick = feuilleMidi;
+  f.querySelector("#ywifibt").onclick = feuilleWifi;
+  api("/api/wifi").then(w => { if ($("ywifi")) $("ywifi").innerHTML = texteWifi(w); }).catch(() => {});
   const rafr = async () => {
     try {
       const s = await api("/api/systeme");
