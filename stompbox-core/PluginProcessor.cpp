@@ -1223,7 +1223,7 @@ std::string PluginProcessor::HandleCommand(std::string const& line)
         {
             // Output level of the last ~10 ms (linear, 1 = full scale): total RMS, low (<250 Hz) and
             // high RMS, peak. Polled many times per second by the screen saver visualizer.
-            // "Bands" lists the RMS of 8 octave bands, 80 Hz to 10 kHz (for a spectrum, low to high).
+            // "Bands" lists the RMS of 24 third-octave bands, 63 Hz to 12.7 kHz (for a spectrum, low to high).
             std::string bands;
 
             for (int b = 0; b < LEVEL_BANDS; b++)
@@ -1713,14 +1713,14 @@ void PluginProcessor::MeasureOutputLevel(const float* output, size_t count)
 
     if (levelBandRate != sampleRate)
     {
-        // RBJ band-pass (0 dB peak), one octave wide, centers 80 Hz ... 10 kHz
+        // RBJ band-pass (0 dB peak), one third of an octave wide (Q 4.32), centers 63 Hz ... 12.7 kHz
         levelBandRate = sampleRate;
 
         for (int b = 0; b < LEVEL_BANDS; b++)
         {
-            float freq = std::min(80.0f * powf(2.0f, b * 7.0f / (LEVEL_BANDS - 1)), sampleRate * 0.45f);
+            float freq = std::min(63.0f * powf(2.0f, b / 3.0f), sampleRate * 0.45f);
             float w0 = 2.0f * (float)M_PI * freq / sampleRate;
-            float alpha = sinf(w0) / (2.0f * 1.41f);
+            float alpha = sinf(w0) / (2.0f * 4.32f);
             float a0 = 1.0f + alpha;
 
             levelBandB0[b] = alpha / a0;

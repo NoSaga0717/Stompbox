@@ -1112,48 +1112,51 @@ function dessinerAccordeur() {
    Le premier toucher ne fait que réveiller l'écran. */
 const VEILLE_ICI = ECRAN || new URLSearchParams(location.search).has("veille");
 const V = {endormi: false, dernier: Date.now(), cle: null, minuteur: null, niveau: null,
-           env: 0, grave: 0, aigu: 0, crete: 0, t: 0, avant: 0, bandes: new Array(8).fill(0)};
+           env: 0, grave: 0, aigu: 0, crete: 0, t: 0, avant: 0, bandes: new Array(24).fill(0), cretes: null};
 function styleVeille() { return T && T.reglages && T.reglages.VEILLE_STYLE === "spectre" ? "spectre" : "onde"; }
-/* Spectre : les graves à gauche, les aigus à droite. Une courbe lisse passe par
-   les 8 bandes d'octave ; elle s'ouvre en haut et en bas comme un ruban. */
+/* Spectre : les graves à gauche, les aigus à droite (24 bandes de tiers
+   d'octave, 63 Hz à 12,7 kHz). Une ligne dorée nette monte depuis le bas,
+   avec un léger voile dessous et un repère de crête qui retombe doucement. */
 function dessinerSpectre(g, W, H) {
-  const milieu = H / 2, ampl = H * 0.46, N = V.bandes.length, or = "214,172,90";
-  const souffle = 0.02 + 0.01 * Math.sin(V.t * 1.7);
-  // Valeur lissée entre deux bandes (courbe de Catmull-Rom)
-  const val = u => {
+  const N = V.bandes.length, base = H - 2, haut = H * 0.92, or = "214,172,90";
+  if (!V.cretes || V.cretes.length !== N) V.cretes = new Array(N).fill(0);
+  const dtc = 1 / 60;
+  for (let i = 0; i < N; i++) V.cretes[i] = Math.max(V.bandes[i], V.cretes[i] - dtc * 0.35);
+  // Courbe de Catmull-Rom : passe exactement par chaque bande, sans paliers
+  const val = (tab, u) => {
     const p = Math.max(0, Math.min(N - 1, u * (N - 1))), i = Math.floor(p), f = p - i;
-    const v = k => V.bandes[Math.max(0, Math.min(N - 1, k))];
-    const a = v(i - 1), b0 = v(i), c = v(i + 1), d = v(i + 2);
-    return Math.max(0, b0 + 0.5 * f * (c - a + f * (2 * a - 5 * b0 + 4 * c - d + f * (3 * (b0 - c) + d - a))));
+    const v = k => tab[Math.max(0, Math.min(N - 1, k))];
+    const a = v(i - 1), b = v(i), c = v(i + 1), d = v(i + 2);
+    return Math.max(0, Math.min(1, b + 0.5 * f * (c - a + f * (2 * a - 5 * b + 4 * c - d + f * (3 * (b - c) + d - a)))));
   };
-  const courbe = (echelle, signe) => {
-    const pts = [];
-    for (let x = 0; x <= W; x += 3) {
-      // Bords arrondis sur 8 % de chaque côté seulement : le reste suit les bandes
-      const u = x / W, e = Math.min(1, Math.min(u, 1 - u) / 0.08), bord = e * e * (3 - 2 * e);
-      const vague = 1 + 0.06 * Math.sin(2 * Math.PI * 2.2 * u - V.t * 1.6);
-      const v = Math.pow(val(0.04 + 0.92 * u), 2);
-      pts.push([x, milieu - signe * ampl * (souffle + v) * bord * vague * echelle]);
+  const marge = 0.05, pas = 2;
+  const pts = tab => {
+    const r = [];
+    for (let x = 0; x <= W; x += pas) {
+      const u = x / W, e = Math.min(1, Math.min(u, 1 - u) / marge), bord = e * e * (3 - 2 * e);
+      r.push([x, base - haut * (0.012 + Math.pow(val(tab, u), 1.6)) * bord]);
     }
-    return pts;
+    return r;
   };
-  const haut = courbe(1, 1), bas = courbe(1, -1);
-  g.beginPath(); haut.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
-  for (let i = bas.length - 1; i >= 0; i--) g.lineTo(bas[i][0], bas[i][1]);
-  g.closePath();
-  const voile = g.createLinearGradient(0, milieu - ampl, 0, milieu + ampl);
-  voile.addColorStop(0, `rgba(${or},0)`); voile.addColorStop(0.5, `rgba(${or},${0.14 + 0.2 * V.env})`); voile.addColorStop(1, `rgba(${or},0)`);
+  const ligne = pts(V.bandes);
+  // Voile sous la ligne
+  g.beginPath(); g.moveTo(0, base);
+  ligne.forEach(([x, y]) => g.lineTo(x, y));
+  g.lineTo(W, base); g.closePath();
+  const voile = g.createLinearGradient(0, base - haut, 0, base);
+  voile.addColorStop(0, `rgba(${or},${0.22 + 0.15 * V.env})`); voile.addColorStop(1, `rgba(${or},0.02)`);
   g.fillStyle = voile; g.fill();
-  const fil = g.createLinearGradient(0, 0, W, 0);
-  fil.addColorStop(0, `rgba(${or},0)`); fil.addColorStop(0.12, "rgba(240,213,143,1)");
-  fil.addColorStop(0.88, "rgba(240,213,143,1)"); fil.addColorStop(1, `rgba(${or},0)`);
-  g.lineCap = g.lineJoin = "round"; g.strokeStyle = fil;
-  const trace = pts => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); };
-  g.shadowBlur = 0; g.lineWidth = 1.2;
-  g.globalAlpha = 0.3; trace(courbe(0.55, 1)); trace(courbe(0.55, -1));
-  g.globalAlpha = 0.95; g.lineWidth = 2.4;
-  g.shadowColor = `rgba(${or},${0.5 + 0.5 * V.crete})`; g.shadowBlur = 10 + 14 * V.crete;
-  trace(haut); g.globalAlpha = 0.6; trace(bas);
+  // Ligne de base fine
+  g.globalAlpha = 0.35; g.fillStyle = `rgb(${or})`; g.fillRect(W * marge, base, W * (1 - 2 * marge), 1);
+  // Repère de crête : fil fin qui retombe lentement
+  g.lineJoin = g.lineCap = "round";
+  g.beginPath(); pts(V.cretes).forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+  g.globalAlpha = 0.35; g.strokeStyle = "rgb(240,213,143)"; g.lineWidth = 1; g.stroke();
+  // Ligne principale
+  g.beginPath(); ligne.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+  g.globalAlpha = 1; g.lineWidth = 2;
+  g.shadowColor = `rgba(${or},${0.45 + 0.4 * V.crete})`; g.shadowBlur = 6 + 8 * V.crete;
+  g.stroke();
   g.globalAlpha = 1; g.shadowBlur = 0;
 }
 function delaiVeille() { const d = T && T.reglages ? T.reglages.VEILLE : undefined; return d == null ? 7 : +d; }
@@ -1213,13 +1216,13 @@ function dessinerOnde(maintenant) {
   V.grave = lisser(V.grave, versUn(n.grave), dt);
   V.aigu = lisser(V.aigu, versUn(n.aigu), dt);
   V.crete = lisser(V.crete, versUn(n.crete), dt);
-  // Bandes d'octave 80 Hz -> 10 kHz ; +3 dB par octave pour que les aigus
+  // Bandes de tiers d'octave 63 Hz -> 12,7 kHz ; +3 dB par octave pour que les aigus
   // (naturellement plus faibles) se voient autant que les graves
   const b = n.bandes || [];
   // (échelle plus serrée que l'onde, -42 à -6 dB, pour bien voir la forme du spectre)
-  for (let i = 0; i < 8; i++) {
-    const db = 20 * Math.log10((b[i] || 0) * Math.pow(10, 3 * i / 20) + 1e-6);
-    V.bandes[i] = lisser(V.bandes[i], Math.max(0, Math.min(1, (db + 42) / 36)), dt);
+  for (let i = 0; i < V.bandes.length; i++) {
+    const db = 20 * Math.log10((b[i] || 0) * Math.pow(10, i / 20) + 1e-6);   // +1 dB par tiers d'octave
+    V.bandes[i] = lisser(V.bandes[i], Math.max(0, Math.min(1, (db + 48) / 40)), dt);
   }
   V.t += dt * (0.5 + 1.8 * V.env);
   const cv = $("vonde"), dpr = window.devicePixelRatio || 1;
