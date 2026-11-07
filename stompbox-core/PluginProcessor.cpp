@@ -742,7 +742,7 @@ std::string PluginProcessor::HandleCommand(std::string const& line)
     std::string err;
 
     // "Status" is polled every second by remote interfaces: don't flood the log with it
-    if (line != "Status")
+    if ((line != "Status") && (line != "Levels"))
         std::cerr << "Got message: " << line << "\n";
 
     std::vector<std::string> commandWords;
@@ -1219,6 +1219,15 @@ std::string PluginProcessor::HandleCommand(std::string const& line)
 
             SendClientMessage(status);
         }
+        else if (commandWords[0] == "Levels")
+        {
+            // Output level of the last ~10 ms (linear, 1 = full scale): total RMS, low (<250 Hz) and
+            // high RMS, peak. Polled many times per second by the screen saver visualizer.
+            SendClientMessage("Levels Rms " + std::to_string(levelRms.load(std::memory_order_relaxed)) +
+                " Low " + std::to_string(levelLowRms.load(std::memory_order_relaxed)) +
+                " High " + std::to_string(levelHighRms.load(std::memory_order_relaxed)) +
+                " Peak " + std::to_string(levelPeakOut.load(std::memory_order_relaxed)) + "\r\n");
+        }
         else if (commandWords[0] == "PluginOutputOn")
         {
             pluginOutputOn = true;
@@ -1684,6 +1693,45 @@ void PluginProcessor::Process(float* input, float* output, size_t count)
         }
     }
 
+    MeasureOutputLevel(output, count);
+
     // restore previous floating point state
     std::feupdateenv(&fe_state);
+}
+
+void PluginProcessor::MeasureOutputLevel(const float* output, size_t count)
+{
+    // One-pole low-pass (~250 Hz) splits the signal into "low" and "high" energy
+    float lowCoeff = 1.0f - expf(-2.0f * (float)M_PI * 250.0f / sampleRate);
+
+    for (size_t i = 0; i < count; i++)
+    {
+        float s = output[i];
+
+        levelLowState += lowCoeff * (s - levelLowState);
+
+        levelSumSq += s * s;
+        levelLowSumSq += levelLowState * levelLowState;
+        levelPeak = std::max(levelPeak, fabsf(s));
+    }
+
+    levelSamples += (int)count;
+
+    if (levelSamples >= (int)(sampleRate * 0.01f))
+    {
+        float total = (float)(levelSumSq / levelSamples);
+        float low = (float)(levelLowSumSq / levelSamples);
+
+        levelRms.store(sqrtf(total), std::memory_order_relaxed);
+        levelLowRms.store(sqrtf(low), std::memory_order_relaxed);
+        levelHighRms.store(sqrtf(std::max(0.0f, total - low)), std::memory_order_relaxed);
+        levelPeakOut.store(levelPeak, std::memory_order_relaxed);
+
+        levelSumSq = levelLowSumSq = 0;
+        levelPeak = 0;
+        levelSamples = 0;
+    }
+
+    if (!std::isfinite(levelLowState))
+        levelLowState = 0;
 }

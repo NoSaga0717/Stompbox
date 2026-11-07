@@ -12,6 +12,9 @@ API (tout en JSON) :
   GET  /api/tout      chaîne de blocs, réglages, presets, réglages audio
   GET  /api/config    types de blocs disponibles, leurs réglages, modèles NAM
   GET  /api/systeme   graphe DSP, température, version
+  GET  /api/niveau    niveau du son en sortie, demandé ~30 fois par seconde par
+                      l'écran en veille (le moteur n'est interrogé que pendant
+                      qu'une page le demande)
   POST /api/param     {id, nom, valeur}
   POST /api/actif     {id, actif}
   POST /api/ordre     {ordre: [id, ...]}
@@ -20,6 +23,7 @@ API (tout en JSON) :
   POST /api/preset    {action: charger|sauver|supprimer|nouveau|suivant|precedent, nom}
   POST /api/calibration {valeur}   POST /api/volume {valeur}
   POST /api/buffer    {taille}     POST /api/accordeur {actif}
+  POST /api/veille    {secondes}   délai de veille de l'écran (0 = jamais)
   POST /api/envoyer   fichier .nam brut, nom dans l'en-tête X-Nom-Fichier
   POST /api/midi      {action: apprendre|annuler|oublier|mode|canal, ...}
 
@@ -305,6 +309,34 @@ def api_etat():
             "chargement": etat["chargement"], "accordeur": accordeur(), "midi": etat_midi()}
 
 
+# Niveau du son pour la veille de l'écran : un fil interroge le moteur environ
+# 30 fois par seconde, seulement si une page a demandé /api/niveau récemment.
+niveau = {"valeur": None, "demande": 0.0, "fil": None}
+verrou_niveau = threading.Lock()
+
+
+def boucle_niveau():
+    while time.time() - niveau["demande"] < 2:
+        try:
+            niveau["valeur"] = moteur.niveaux()
+            time.sleep(1 / 30)
+        except (MoteurAbsent, ValueError, OSError):
+            niveau["valeur"] = None
+            time.sleep(0.5)
+    with verrou_niveau:
+        niveau["fil"] = None
+
+
+def api_niveau():
+    with verrou_niveau:
+        niveau["demande"] = time.time()
+        if niveau["fil"] is None:
+            niveau["fil"] = threading.Thread(target=boucle_niveau, daemon=True)
+            niveau["fil"].start()
+    v = niveau["valeur"]
+    return {"ok": v is not None, **(v or {})}
+
+
 def api_tout():
     p = etat["prog"]
     chaine = []
@@ -320,7 +352,7 @@ def api_tout():
     r = tetenam.reglages()
     return {"rev": etat["rev"], "preset": etat["preset"], "numero": numero_preset(),
             "modifie": etat["modifie"], "presets": liste_presets(), "chaine": chaine,
-            "reglages": {k: r[k] for k in ("CARD", "RATE", "PERIOD", "NPERIODS", "INPUT_DBU")},
+            "reglages": {k: r[k] for k in ("CARD", "RATE", "PERIOD", "NPERIODS", "INPUT_DBU", "VEILLE")},
             "volume": r["VOLUME_DB"], "buffers": tetenam.BUFFERS,
             "midi": {"canal": M["canal"], "assignations": assignations()}}
 
@@ -569,6 +601,14 @@ def api_volume(d):
         v = min(40.0, max(-40.0, float(d.get("valeur"))))
         moteur.ok(f"SetParam Master Volume {v}")
         changer_conf("VOLUME_DB", v)
+        etat["rev"] += 1
+        return {"ok": True}
+
+
+def api_veille(d):
+    with verrou:
+        v = int(min(600, max(0, float(d.get("secondes")))))
+        changer_conf("VEILLE", v)
         etat["rev"] += 1
         return {"ok": True}
 
@@ -886,11 +926,12 @@ def etat_midi():
 
 
 LECTURES = {"/api/etat": api_etat, "/api/tout": api_tout, "/api/config": api_config,
-            "/api/systeme": api_systeme}
+            "/api/systeme": api_systeme, "/api/niveau": api_niveau}
 ROUTES = {"/api/param": api_param, "/api/actif": api_actif, "/api/ordre": api_ordre,
           "/api/ajouter": api_ajouter, "/api/retirer": api_retirer, "/api/preset": api_preset,
           "/api/calibration": api_calibration, "/api/volume": api_volume,
-          "/api/buffer": api_buffer, "/api/accordeur": api_accordeur, "/api/midi": api_midi}
+          "/api/buffer": api_buffer, "/api/accordeur": api_accordeur, "/api/midi": api_midi,
+          "/api/veille": api_veille}
 
 
 class Gestionnaire(BaseHTTPRequestHandler):

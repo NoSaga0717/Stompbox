@@ -82,6 +82,13 @@ protected:
 	float maxDSPLoad = 0;
 	float statusMaxDSPLoad = 0;		// max DSP load since the last "Status" command
 	std::atomic<int> xrunCount = 0;
+	// Output level meter for remote interfaces ("Levels" command): computed in the audio
+	// thread over ~10 ms windows, published lock-free, read by the command thread
+	double levelSumSq = 0, levelLowSumSq = 0;
+	float levelPeak = 0, levelLowState = 0;
+	int levelSamples = 0;
+	std::atomic<float> levelRms = 0, levelLowRms = 0, levelHighRms = 0, levelPeakOut = 0;
+	void MeasureOutputLevel(const float* output, size_t count);
 	int clientUpdateFrame = 0;
 	std::thread* presetLoadThread = nullptr;
 	int ramp = 0;

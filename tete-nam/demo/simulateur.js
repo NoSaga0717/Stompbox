@@ -62,6 +62,15 @@
   if (!s.midi) s.midi = {canal: 0, global: {}, presets: {}, courant: {}};
   let rev = 1, accordeur = false, vus = new Set(s.chaine.map(b => b.id));
   const histo = [];
+  // Son simulé pour la veille de l'écran : des accords grattés qui
+  // s'éteignent doucement, avec un peu de jeu en notes entre deux
+  let attaque = 0, force = 0;
+  function niveauSimule() {
+    const t = performance.now() / 1000;
+    if (t - attaque > 1.1 + Math.random() * 1.6) { attaque = t; force = 0.35 + Math.random() * 0.6; }
+    const e = force * Math.exp(-(t - attaque) * 1.6) * (0.9 + 0.1 * Math.sin(t * 40));
+    return {ok: true, rms: e * 0.5, grave: e * (0.25 + 0.15 * Math.sin(t * 0.7)), aigu: e * 0.4, crete: Math.min(1, e * 0.9)};
+  }
   function sauver() { try { localStorage.setItem(CLE, JSON.stringify(s)); } catch (e) { /* pas grave */ } }
   function change() { s.modifie = true; rev++; sauver(); }
   const noms = () => Object.keys(s.presets).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
@@ -96,10 +105,11 @@
       temp: 52 + Math.random() * 2, throttled: "0x0", preset: s.preset, numero: numero(), modifie: s.modifie,
       chargement: false, accordeur: tuner(), midi: etatMidi()}),
     "/api/tout": () => ({rev, preset: s.preset, numero: numero(), modifie: s.modifie, presets: noms(), chaine: copie(s.chaine),
-      reglages: {CARD: "M4", RATE: 48000, PERIOD: s.buffer, NPERIODS: 2, INPUT_DBU: s.cal},
+      reglages: {CARD: "M4", RATE: 48000, PERIOD: s.buffer, NPERIODS: 2, INPUT_DBU: s.cal, VEILLE: s.veille ?? 7},
       volume: s.volume, buffers: [64, 128, 256, 512],
       midi: {canal: s.midi.canal, assignations: assignations()}}),
     "/api/config": () => copie(CFG),
+    "/api/niveau": () => niveauSimule(),
     "/api/systeme": () => ({histo: histo.slice(), temp: 53, throttled: "0x0", xruns: 0, dsp: histo[histo.length - 1],
       version: "démo", service: "active"}),
   };
@@ -166,6 +176,7 @@
     "/api/volume": d => { s.volume = Math.min(40, Math.max(-40, +d.valeur)); rev++; sauver(); return {ok: true}; },
     "/api/buffer": d => { s.buffer = +d.taille; rev++; sauver(); return {ok: true}; },
     "/api/accordeur": d => { accordeur = !!d.actif; return {ok: true}; },
+    "/api/veille": d => { s.veille = Math.max(0, Math.min(600, +d.secondes)); rev++; sauver(); return {ok: true}; },
   };
 
   // --- MIDI (même logique que web.py) -------------------------------------------
