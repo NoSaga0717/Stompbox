@@ -64,12 +64,20 @@
   const histo = [];
   // Son simulé pour la veille de l'écran : des accords grattés qui
   // s'éteignent doucement, avec un peu de jeu en notes entre deux
-  let attaque = 0, force = 0;
+  let attaque = 0, force = 0, couleur = 0;
   function niveauSimule() {
     const t = performance.now() / 1000;
-    if (t - attaque > 1.1 + Math.random() * 1.6) { attaque = t; force = 0.35 + Math.random() * 0.6; }
+    if (t - attaque > 1.1 + Math.random() * 1.6) {
+      attaque = t; force = 0.35 + Math.random() * 0.6;
+      couleur = Math.random() * 2 - 1;      // accord plus sourd (-1) ou plus brillant (+1)
+    }
     const e = force * Math.exp(-(t - attaque) * 1.6) * (0.9 + 0.1 * Math.sin(t * 40));
-    return {ok: true, rms: e * 0.5, grave: e * (0.25 + 0.15 * Math.sin(t * 0.7)), aigu: e * 0.4, crete: Math.min(1, e * 0.9)};
+    // Spectre d'une guitare saturée : bosse vers 300-1500 Hz, aigus qui
+    // s'éteignent plus vite que les graves après l'attaque
+    const age = t - attaque, forme = [0.35, 0.6, 0.9, 1, 0.85, 0.55, 0.3, 0.12];
+    const bandes = forme.map((f, i) => e * f * 0.35 * Math.exp(-age * i * 0.25) * Math.pow(2.2, couleur * (i - 3.5) / 3.5) *
+      (1 + 0.25 * Math.sin(t * (3 + i) + i)) / Math.pow(10, 3 * i / 20));
+    return {ok: true, rms: e * 0.5, grave: e * (0.25 + 0.15 * Math.sin(t * 0.7)), aigu: e * 0.4, crete: Math.min(1, e * 0.9), bandes};
   }
   // Wi-Fi simulé : quelques réseaux, « Studio » est enregistré
   const wifi = {ssid: "", hotspot: true, connus: ["Studio"], resultat: null,
@@ -129,7 +137,7 @@
       temp: 52 + Math.random() * 2, throttled: "0x0", preset: s.preset, numero: numero(), modifie: s.modifie,
       chargement: false, accordeur: tuner(), midi: etatMidi()}),
     "/api/tout": () => ({rev, preset: s.preset, numero: numero(), modifie: s.modifie, presets: noms(), chaine: copie(s.chaine),
-      reglages: {CARD: "M4", RATE: 48000, PERIOD: s.buffer, NPERIODS: 2, INPUT_DBU: s.cal, VEILLE: s.veille ?? 7},
+      reglages: {CARD: "M4", RATE: 48000, PERIOD: s.buffer, NPERIODS: 2, INPUT_DBU: s.cal, VEILLE: s.veille ?? 7, VEILLE_STYLE: s.veilleStyle || "onde"},
       volume: s.volume, buffers: [64, 128, 256, 512],
       midi: {canal: s.midi.canal, assignations: assignations()}}),
     "/api/config": () => copie(CFG),
@@ -202,7 +210,11 @@
     "/api/buffer": d => { s.buffer = +d.taille; rev++; sauver(); return {ok: true}; },
     "/api/accordeur": d => { accordeur = !!d.actif; return {ok: true}; },
     "/api/wifi": d => actionWifi(d),
-    "/api/veille": d => { s.veille = Math.max(0, Math.min(600, +d.secondes)); rev++; sauver(); return {ok: true}; },
+    "/api/veille": d => {
+      if (d.secondes != null) s.veille = Math.max(0, Math.min(600, +d.secondes));
+      if (d.style) s.veilleStyle = d.style === "spectre" ? "spectre" : "onde";
+      rev++; sauver(); return {ok: true};
+    },
   };
 
   // --- MIDI (même logique que web.py) -------------------------------------------

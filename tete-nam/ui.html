@@ -894,9 +894,11 @@ async function feuilleSysteme() {
     <div class="rangs"><button data-vol="-3">−3</button><button data-vol="-1">−1</button><b id="yvol" style="min-width:90px;text-align:center;font-size:18px">${T.volume} dB</b>
       <button data-vol="1">+1</button><button data-vol="3">+3</button><button data-vol="0" data-abs="1">0 dB</button></div>`;
   if (!ECRAN) h += `<div class="etiq">Modèles</div><div class="rangs"><button id="yenvoi">Envoyer des fichiers .nam vers la tête…</button></div>`;
-  h += `<div class="etiq">Veille de l'écran de la tête (logo et onde du son)</div><div class="rangs">` +
+  h += `<div class="etiq">Veille de l'écran de la tête : délai et dessin du son</div><div class="rangs">` +
     [[0, "Jamais"], [7, "7 s"], [15, "15 s"], [30, "30 s"], [60, "1 min"]].map(([v, t]) =>
-      `<button class="${v === +(r.VEILLE ?? 7) ? "prim" : ""}" data-veille="${v}">${t}</button>`).join("") + `</div>`;
+      `<button class="${v === +(r.VEILLE ?? 7) ? "prim" : ""}" data-veille="${v}">${t}</button>`).join("") +
+    `<span style="flex:1"></span>` + [["onde", "Onde"], ["spectre", "Spectre"]].map(([v, t]) =>
+      `<button class="${v === (r.VEILLE_STYLE || "onde") ? "prim" : ""}" data-style="${v}">${t}</button>`).join("") + `</div>`;
   h += `<div class="etiq">Wi-Fi</div><div class="rangs"><span id="ywifi" class="wetat" style="flex:1 1 220px">…</span><button id="ywifibt">Réseaux Wi-Fi…</button></div>`;
   h += `<div class="etiq">Pédalier</div><div class="rangs"><button id="ymidi">Réglages MIDI…</button></div>`;
   h += `<div class="pied" id="ypied">${r.RATE / 1000} kHz · carte ${echap(r.CARD)}</div>`;
@@ -921,6 +923,11 @@ async function feuilleSysteme() {
     f.querySelectorAll("[data-veille]").forEach(x => x.classList.toggle("prim", x === bt));
     r.VEILLE = +bt.dataset.veille;
     await action("/api/veille", {secondes: r.VEILLE});
+  });
+  f.querySelectorAll("[data-style]").forEach(bt => bt.onclick = async () => {
+    f.querySelectorAll("[data-style]").forEach(x => x.classList.toggle("prim", x === bt));
+    r.VEILLE_STYLE = bt.dataset.style;
+    await action("/api/veille", {style: r.VEILLE_STYLE});
   });
   const env = f.querySelector("#yenvoi"); if (env) env.onclick = envoyerFichiers;
   f.querySelector("#ymidi").onclick = feuilleMidi;
@@ -1105,7 +1112,50 @@ function dessinerAccordeur() {
    Le premier toucher ne fait que réveiller l'écran. */
 const VEILLE_ICI = ECRAN || new URLSearchParams(location.search).has("veille");
 const V = {endormi: false, dernier: Date.now(), cle: null, minuteur: null, niveau: null,
-           env: 0, grave: 0, aigu: 0, crete: 0, t: 0, avant: 0};
+           env: 0, grave: 0, aigu: 0, crete: 0, t: 0, avant: 0, bandes: new Array(8).fill(0)};
+function styleVeille() { return T && T.reglages && T.reglages.VEILLE_STYLE === "spectre" ? "spectre" : "onde"; }
+/* Spectre : les graves à gauche, les aigus à droite. Une courbe lisse passe par
+   les 8 bandes d'octave ; elle s'ouvre en haut et en bas comme un ruban. */
+function dessinerSpectre(g, W, H) {
+  const milieu = H / 2, ampl = H * 0.46, N = V.bandes.length, or = "214,172,90";
+  const souffle = 0.02 + 0.01 * Math.sin(V.t * 1.7);
+  // Valeur lissée entre deux bandes (courbe de Catmull-Rom)
+  const val = u => {
+    const p = Math.max(0, Math.min(N - 1, u * (N - 1))), i = Math.floor(p), f = p - i;
+    const v = k => V.bandes[Math.max(0, Math.min(N - 1, k))];
+    const a = v(i - 1), b0 = v(i), c = v(i + 1), d = v(i + 2);
+    return Math.max(0, b0 + 0.5 * f * (c - a + f * (2 * a - 5 * b0 + 4 * c - d + f * (3 * (b0 - c) + d - a))));
+  };
+  const courbe = (echelle, signe) => {
+    const pts = [];
+    for (let x = 0; x <= W; x += 3) {
+      // Bords arrondis sur 8 % de chaque côté seulement : le reste suit les bandes
+      const u = x / W, e = Math.min(1, Math.min(u, 1 - u) / 0.08), bord = e * e * (3 - 2 * e);
+      const vague = 1 + 0.06 * Math.sin(2 * Math.PI * 2.2 * u - V.t * 1.6);
+      const v = Math.pow(val(0.04 + 0.92 * u), 2);
+      pts.push([x, milieu - signe * ampl * (souffle + v) * bord * vague * echelle]);
+    }
+    return pts;
+  };
+  const haut = courbe(1, 1), bas = courbe(1, -1);
+  g.beginPath(); haut.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y));
+  for (let i = bas.length - 1; i >= 0; i--) g.lineTo(bas[i][0], bas[i][1]);
+  g.closePath();
+  const voile = g.createLinearGradient(0, milieu - ampl, 0, milieu + ampl);
+  voile.addColorStop(0, `rgba(${or},0)`); voile.addColorStop(0.5, `rgba(${or},${0.14 + 0.2 * V.env})`); voile.addColorStop(1, `rgba(${or},0)`);
+  g.fillStyle = voile; g.fill();
+  const fil = g.createLinearGradient(0, 0, W, 0);
+  fil.addColorStop(0, `rgba(${or},0)`); fil.addColorStop(0.12, "rgba(240,213,143,1)");
+  fil.addColorStop(0.88, "rgba(240,213,143,1)"); fil.addColorStop(1, `rgba(${or},0)`);
+  g.lineCap = g.lineJoin = "round"; g.strokeStyle = fil;
+  const trace = pts => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); };
+  g.shadowBlur = 0; g.lineWidth = 1.2;
+  g.globalAlpha = 0.3; trace(courbe(0.55, 1)); trace(courbe(0.55, -1));
+  g.globalAlpha = 0.95; g.lineWidth = 2.4;
+  g.shadowColor = `rgba(${or},${0.5 + 0.5 * V.crete})`; g.shadowBlur = 10 + 14 * V.crete;
+  trace(haut); g.globalAlpha = 0.6; trace(bas);
+  g.globalAlpha = 1; g.shadowBlur = 0;
+}
 function delaiVeille() { const d = T && T.reglages ? T.reglages.VEILLE : undefined; return d == null ? 7 : +d; }
 function peutDormir() {
   return E && E.moteur && !$("demarrage").classList.contains("ouvert") && !$("accord").classList.contains("ouvert") &&
@@ -1163,6 +1213,14 @@ function dessinerOnde(maintenant) {
   V.grave = lisser(V.grave, versUn(n.grave), dt);
   V.aigu = lisser(V.aigu, versUn(n.aigu), dt);
   V.crete = lisser(V.crete, versUn(n.crete), dt);
+  // Bandes d'octave 80 Hz -> 10 kHz ; +3 dB par octave pour que les aigus
+  // (naturellement plus faibles) se voient autant que les graves
+  const b = n.bandes || [];
+  // (échelle plus serrée que l'onde, -42 à -6 dB, pour bien voir la forme du spectre)
+  for (let i = 0; i < 8; i++) {
+    const db = 20 * Math.log10((b[i] || 0) * Math.pow(10, 3 * i / 20) + 1e-6);
+    V.bandes[i] = lisser(V.bandes[i], Math.max(0, Math.min(1, (db + 42) / 36)), dt);
+  }
   V.t += dt * (0.5 + 1.8 * V.env);
   const cv = $("vonde"), dpr = window.devicePixelRatio || 1;
   const W = cv.clientWidth, H = cv.clientHeight;
@@ -1171,6 +1229,7 @@ function dessinerOnde(maintenant) {
   const g = cv.getContext("2d");
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, W, H);
+  if (styleVeille() === "spectre") return dessinerSpectre(g, W, H);
   const milieu = H / 2, ampl = H * 0.44;
   const souffle = 0.012 + 0.008 * Math.sin(V.t * 1.7);       // repos : la ligne respire à peine
   const aGrave = ampl * (souffle + 0.9 * V.grave * V.env + 0.25 * V.env);

@@ -1223,10 +1223,17 @@ std::string PluginProcessor::HandleCommand(std::string const& line)
         {
             // Output level of the last ~10 ms (linear, 1 = full scale): total RMS, low (<250 Hz) and
             // high RMS, peak. Polled many times per second by the screen saver visualizer.
+            // "Bands" lists the RMS of 8 octave bands, 80 Hz to 10 kHz (for a spectrum, low to high).
+            std::string bands;
+
+            for (int b = 0; b < LEVEL_BANDS; b++)
+                bands += " " + std::to_string(levelBands[b].load(std::memory_order_relaxed));
+
             SendClientMessage("Levels Rms " + std::to_string(levelRms.load(std::memory_order_relaxed)) +
                 " Low " + std::to_string(levelLowRms.load(std::memory_order_relaxed)) +
                 " High " + std::to_string(levelHighRms.load(std::memory_order_relaxed)) +
-                " Peak " + std::to_string(levelPeakOut.load(std::memory_order_relaxed)) + "\r\n");
+                " Peak " + std::to_string(levelPeakOut.load(std::memory_order_relaxed)) +
+                " Bands" + bands + "\r\n");
         }
         else if (commandWords[0] == "PluginOutputOn")
         {
@@ -1704,6 +1711,25 @@ void PluginProcessor::MeasureOutputLevel(const float* output, size_t count)
     // One-pole low-pass (~250 Hz) splits the signal into "low" and "high" energy
     float lowCoeff = 1.0f - expf(-2.0f * (float)M_PI * 250.0f / sampleRate);
 
+    if (levelBandRate != sampleRate)
+    {
+        // RBJ band-pass (0 dB peak), one octave wide, centers 80 Hz ... 10 kHz
+        levelBandRate = sampleRate;
+
+        for (int b = 0; b < LEVEL_BANDS; b++)
+        {
+            float freq = std::min(80.0f * powf(2.0f, b * 7.0f / (LEVEL_BANDS - 1)), sampleRate * 0.45f);
+            float w0 = 2.0f * (float)M_PI * freq / sampleRate;
+            float alpha = sinf(w0) / (2.0f * 1.41f);
+            float a0 = 1.0f + alpha;
+
+            levelBandB0[b] = alpha / a0;
+            levelBandA1[b] = -2.0f * cosf(w0) / a0;
+            levelBandA2[b] = (1.0f - alpha) / a0;
+            levelBandZ1[b] = levelBandZ2[b] = 0;
+        }
+    }
+
     for (size_t i = 0; i < count; i++)
     {
         float s = output[i];
@@ -1713,6 +1739,16 @@ void PluginProcessor::MeasureOutputLevel(const float* output, size_t count)
         levelSumSq += s * s;
         levelLowSumSq += levelLowState * levelLowState;
         levelPeak = std::max(levelPeak, fabsf(s));
+
+        for (int b = 0; b < LEVEL_BANDS; b++)
+        {
+            // Transposed direct form II, b1 = 0 and b2 = -b0 for this band-pass
+            float y = levelBandB0[b] * s + levelBandZ1[b];
+
+            levelBandZ1[b] = -levelBandA1[b] * y + levelBandZ2[b];
+            levelBandZ2[b] = -levelBandB0[b] * s - levelBandA2[b] * y;
+            levelBandSumSq[b] += y * y;
+        }
     }
 
     levelSamples += (int)count;
@@ -1726,6 +1762,15 @@ void PluginProcessor::MeasureOutputLevel(const float* output, size_t count)
         levelLowRms.store(sqrtf(low), std::memory_order_relaxed);
         levelHighRms.store(sqrtf(std::max(0.0f, total - low)), std::memory_order_relaxed);
         levelPeakOut.store(levelPeak, std::memory_order_relaxed);
+
+        for (int b = 0; b < LEVEL_BANDS; b++)
+        {
+            levelBands[b].store(sqrtf((float)(levelBandSumSq[b] / levelSamples)), std::memory_order_relaxed);
+            levelBandSumSq[b] = 0;
+
+            if (!std::isfinite(levelBandZ1[b]) || !std::isfinite(levelBandZ2[b]))
+                levelBandZ1[b] = levelBandZ2[b] = 0;
+        }
 
         levelSumSq = levelLowSumSq = 0;
         levelPeak = 0;

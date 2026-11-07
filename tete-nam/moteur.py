@@ -17,7 +17,8 @@ Commandes utilisées :
   SavePreset / LoadPreset / DeletePreset <nom>
   SetInputLevelDBu <dBu>     calibration d'entrée des NAM
   RescanFiles                relit les dossiers de modèles
-  Levels                     niveau de sortie des 10 dernières ms (veille de l'écran)
+  Levels                     niveau de sortie des 10 dernières ms et 8 bandes
+                             d'octave de 80 Hz à 10 kHz (veille de l'écran)
 """
 import shlex
 import socket
@@ -132,9 +133,15 @@ class Moteur:
         for l in lignes:
             m = l.split()
             if m[:1] == ["Levels"]:
+                bandes = []
+                if "Bands" in m:
+                    i = m.index("Bands")
+                    bandes, m = [round(nombre(x), 5) for x in m[i + 1:]], m[:i]
                 d = dict(zip(m[1::2], m[2::2]))
-                return {k: round(nombre(d.get(c)), 5) for k, c in
-                        (("rms", "Rms"), ("grave", "Low"), ("aigu", "High"), ("crete", "Peak"))}
+                r = {k: round(nombre(d.get(c)), 5) for k, c in
+                     (("rms", "Rms"), ("grave", "Low"), ("aigu", "High"), ("crete", "Peak"))}
+                r["bandes"] = bandes        # 8 octaves, 80 Hz à 10 kHz (grave -> aigu)
+                return r
         return None
 
     def programme(self):
