@@ -88,8 +88,8 @@ protected:
 	float levelPeak = 0, levelLowState = 0;
 	int levelSamples = 0;
 	std::atomic<float> levelRms = 0, levelLowRms = 0, levelHighRms = 0, levelPeakOut = 0;
-	// Spectrum for the visualizer: octave band-pass filters from 80 Hz to 10 kHz
-	static constexpr int LEVEL_BANDS = 8;
+	// Spectrum for the visualizer: third-octave band-pass filters from 63 Hz to 12.7 kHz
+	static constexpr int LEVEL_BANDS = 24;
 	float levelBandRate = 0;
 	float levelBandB0[LEVEL_BANDS], levelBandA1[LEVEL_BANDS], levelBandA2[LEVEL_BANDS];
 	float levelBandZ1[LEVEL_BANDS] = {}, levelBandZ2[LEVEL_BANDS] = {};

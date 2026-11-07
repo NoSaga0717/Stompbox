@@ -74,9 +74,15 @@
     const e = force * Math.exp(-(t - attaque) * 1.6) * (0.9 + 0.1 * Math.sin(t * 40));
     // Spectre d'une guitare saturée : bosse vers 300-1500 Hz, aigus qui
     // s'éteignent plus vite que les graves après l'attaque
-    const age = t - attaque, forme = [0.35, 0.6, 0.9, 1, 0.85, 0.55, 0.3, 0.12];
-    const bandes = forme.map((f, i) => e * f * 0.35 * Math.exp(-age * i * 0.25) * Math.pow(2.2, couleur * (i - 3.5) / 3.5) *
-      (1 + 0.25 * Math.sin(t * (3 + i) + i)) / Math.pow(10, 3 * i / 20));
+    const age = t - attaque;
+    // 24 tiers d'octave : bosse vers 300-1500 Hz, quelques harmoniques
+    // marquées, aigus qui s'éteignent plus vite que les graves
+    const bandes = [];
+    for (let i = 0; i < 24; i++) {
+      const oct = i / 3, forme = Math.exp(-Math.pow((oct - 3.3 - 0.6 * couleur) / 2.1, 2));
+      const harmo = 0.65 + 0.35 * Math.sin(i * 1.9 + attaque * 3) * Math.sin(t * (1.5 + i * 0.2));
+      bandes.push(e * 0.4 * forme * harmo * Math.exp(-age * oct * 0.3) / Math.pow(10, i / 20));
+    }
     return {ok: true, rms: e * 0.5, grave: e * (0.25 + 0.15 * Math.sin(t * 0.7)), aigu: e * 0.4, crete: Math.min(1, e * 0.9), bandes};
   }
   // Wi-Fi simulé : quelques réseaux, « Studio » est enregistré
