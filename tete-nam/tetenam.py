@@ -80,6 +80,7 @@ def reglages(c=None):
         "ECRAN_ROTATION": c.get("ECRAN_ROTATION", "0") if c.get("ECRAN_ROTATION", "0") in ("0", "90", "180", "270") else "0",
         "MIDI_UART": c.get("MIDI_UART", "") if c.get("MIDI_UART", "").startswith("/dev/") else "",
         "VEILLE": int(nombre(c.get("VEILLE"), VEILLE_DEFAUT, 0, 600)),
+        "VEILLE_STYLE": "spectre" if c.get("VEILLE_STYLE") == "spectre" else "onde",
     }
 
 
@@ -133,6 +134,9 @@ MIDI_UART={MIDI_UART}
 # l'écran, il n'affiche plus que le logo et le niveau du son (0 = jamais).
 # Réglable depuis la page Système.
 VEILLE={VEILLE}
+# Dessin du son pendant la veille : onde (vagues dorées) ou spectre (graves à
+# gauche, aigus à droite)
+VEILLE_STYLE={VEILLE_STYLE}
 """
 
 

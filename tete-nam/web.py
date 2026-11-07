@@ -23,7 +23,8 @@ API (tout en JSON) :
   POST /api/preset    {action: charger|sauver|supprimer|nouveau|suivant|precedent, nom}
   POST /api/calibration {valeur}   POST /api/volume {valeur}
   POST /api/buffer    {taille}     POST /api/accordeur {actif}
-  POST /api/veille    {secondes}   délai de veille de l'écran (0 = jamais)
+  POST /api/veille    {secondes, style}   délai de veille de l'écran (0 = jamais),
+                      dessin du son : onde ou spectre
   GET  /api/wifi      connexion en cours, réseaux visibles, dernier résultat
   POST /api/wifi      {action: chercher|connecter|oublier|hotspot, ssid, mdp}
   POST /api/envoyer   fichier .nam brut, nom dans l'en-tête X-Nom-Fichier
@@ -354,7 +355,7 @@ def api_tout():
     r = tetenam.reglages()
     return {"rev": etat["rev"], "preset": etat["preset"], "numero": numero_preset(),
             "modifie": etat["modifie"], "presets": liste_presets(), "chaine": chaine,
-            "reglages": {k: r[k] for k in ("CARD", "RATE", "PERIOD", "NPERIODS", "INPUT_DBU", "VEILLE")},
+            "reglages": {k: r[k] for k in ("CARD", "RATE", "PERIOD", "NPERIODS", "INPUT_DBU", "VEILLE", "VEILLE_STYLE")},
             "volume": r["VOLUME_DB"], "buffers": tetenam.BUFFERS,
             "midi": {"canal": M["canal"], "assignations": assignations()}}
 
@@ -609,8 +610,12 @@ def api_volume(d):
 
 def api_veille(d):
     with verrou:
-        v = int(min(600, max(0, float(d.get("secondes")))))
-        changer_conf("VEILLE", v)
+        if "style" in d:
+            if d["style"] not in ("onde", "spectre"):
+                raise ValueError("Style inconnu")
+            changer_conf("VEILLE_STYLE", d["style"])
+        if "secondes" in d:
+            changer_conf("VEILLE", int(min(600, max(0, float(d.get("secondes"))))))
         etat["rev"] += 1
         return {"ok": True}
 

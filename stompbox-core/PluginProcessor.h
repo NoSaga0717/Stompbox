@@ -88,6 +88,13 @@ protected:
 	float levelPeak = 0, levelLowState = 0;
 	int levelSamples = 0;
 	std::atomic<float> levelRms = 0, levelLowRms = 0, levelHighRms = 0, levelPeakOut = 0;
+	// Spectrum for the visualizer: octave band-pass filters from 80 Hz to 10 kHz
+	static constexpr int LEVEL_BANDS = 8;
+	float levelBandRate = 0;
+	float levelBandB0[LEVEL_BANDS], levelBandA1[LEVEL_BANDS], levelBandA2[LEVEL_BANDS];
+	float levelBandZ1[LEVEL_BANDS] = {}, levelBandZ2[LEVEL_BANDS] = {};
+	double levelBandSumSq[LEVEL_BANDS] = {};
+	std::atomic<float> levelBands[LEVEL_BANDS] = {};
 	void MeasureOutputLevel(const float* output, size_t count);
 	int clientUpdateFrame = 0;
 	std::thread* presetLoadThread = nullptr;
