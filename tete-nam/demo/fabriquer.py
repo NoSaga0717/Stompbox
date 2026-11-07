@@ -50,6 +50,7 @@ def main():
 
     for nom in ("simulateur.js", "index.html", "ecran.html"):
         shutil.copy(os.path.join(ICI, nom), os.path.join(SORTIE, nom))
+    shutil.copy(os.path.join(ICI, "..", "demarrage", "logo.png"), os.path.join(SORTIE, "logo.png"))
     print("Démo prête dans", SORTIE)
 
 

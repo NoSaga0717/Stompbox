@@ -12,6 +12,9 @@ API (tout en JSON) :
   GET  /api/tout      chaîne de blocs, réglages, presets, réglages audio
   GET  /api/config    types de blocs disponibles, leurs réglages, modèles NAM
   GET  /api/systeme   graphe DSP, température, version
+  GET  /api/niveau    niveau du son en sortie, demandé ~30 fois par seconde par
+                      l'écran en veille (le moteur n'est interrogé que pendant
+                      qu'une page le demande)
   POST /api/param     {id, nom, valeur}
   POST /api/actif     {id, actif}
   POST /api/ordre     {ordre: [id, ...]}
@@ -20,6 +23,9 @@ API (tout en JSON) :
   POST /api/preset    {action: charger|sauver|supprimer|nouveau|suivant|precedent, nom}
   POST /api/calibration {valeur}   POST /api/volume {valeur}
   POST /api/buffer    {taille}     POST /api/accordeur {actif}
+  POST /api/veille    {secondes}   délai de veille de l'écran (0 = jamais)
+  GET  /api/wifi      connexion en cours, réseaux visibles, dernier résultat
+  POST /api/wifi      {action: chercher|connecter|oublier|hotspot, ssid, mdp}
   POST /api/envoyer   fichier .nam brut, nom dans l'en-tête X-Nom-Fichier
   POST /api/midi      {action: apprendre|annuler|oublier|mode|canal, ...}
 
@@ -305,6 +311,34 @@ def api_etat():
             "chargement": etat["chargement"], "accordeur": accordeur(), "midi": etat_midi()}
 
 
+# Niveau du son pour la veille de l'écran : un fil interroge le moteur environ
+# 30 fois par seconde, seulement si une page a demandé /api/niveau récemment.
+niveau = {"valeur": None, "demande": 0.0, "fil": None}
+verrou_niveau = threading.Lock()
+
+
+def boucle_niveau():
+    while time.time() - niveau["demande"] < 2:
+        try:
+            niveau["valeur"] = moteur.niveaux()
+            time.sleep(1 / 30)
+        except (MoteurAbsent, ValueError, OSError):
+            niveau["valeur"] = None
+            time.sleep(0.5)
+    with verrou_niveau:
+        niveau["fil"] = None
+
+
+def api_niveau():
+    with verrou_niveau:
+        niveau["demande"] = time.time()
+        if niveau["fil"] is None:
+            niveau["fil"] = threading.Thread(target=boucle_niveau, daemon=True)
+            niveau["fil"].start()
+    v = niveau["valeur"]
+    return {"ok": v is not None, **(v or {})}
+
+
 def api_tout():
     p = etat["prog"]
     chaine = []
@@ -320,7 +354,7 @@ def api_tout():
     r = tetenam.reglages()
     return {"rev": etat["rev"], "preset": etat["preset"], "numero": numero_preset(),
             "modifie": etat["modifie"], "presets": liste_presets(), "chaine": chaine,
-            "reglages": {k: r[k] for k in ("CARD", "RATE", "PERIOD", "NPERIODS", "INPUT_DBU")},
+            "reglages": {k: r[k] for k in ("CARD", "RATE", "PERIOD", "NPERIODS", "INPUT_DBU", "VEILLE")},
             "volume": r["VOLUME_DB"], "buffers": tetenam.BUFFERS,
             "midi": {"canal": M["canal"], "assignations": assignations()}}
 
@@ -569,6 +603,14 @@ def api_volume(d):
         v = min(40.0, max(-40.0, float(d.get("valeur"))))
         moteur.ok(f"SetParam Master Volume {v}")
         changer_conf("VOLUME_DB", v)
+        etat["rev"] += 1
+        return {"ok": True}
+
+
+def api_veille(d):
+    with verrou:
+        v = int(min(600, max(0, float(d.get("secondes")))))
+        changer_conf("VEILLE", v)
         etat["rev"] += 1
         return {"ok": True}
 
@@ -885,12 +927,133 @@ def etat_midi():
             "ports": midi_vivant["ports"].ports() if midi_vivant["ports"] else []}
 
 
+# --- Wi-Fi (page Système) : lecture directe par nmcli, changements par
+# tete-nam-wifi lancé avec sudo (règle posée par install.sh) -------------------
+
+WIFI_CMD = "/usr/local/bin/tete-nam-wifi"
+WIFI_RESULTAT = "/run/tete-nam-wifi.json"
+WIFI_IFACE = "wlan0"
+WIFI_HOTSPOT = "tete-nam-hotspot"
+
+
+def nmcli(*args, timeout=10):
+    try:
+        r = subprocess.run(["nmcli", *args], capture_output=True, text=True, timeout=timeout)
+        return r.stdout if r.returncode == 0 else ""
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def champs_nmcli(ligne):
+    """Découpe une ligne « nmcli -t » (les « : » des valeurs sont échappés)."""
+    return [c.replace("\\:", ":").replace("\\\\", "\\") for c in re.split(r"(?<!\\):", ligne)]
+
+
+def wifi_connus():
+    connus = set()
+    for l in nmcli("-t", "-f", "NAME,TYPE", "con", "show").splitlines():
+        c = champs_nmcli(l)
+        if len(c) >= 2 and c[1] == "802-11-wireless" and c[0] != WIFI_HOTSPOT:
+            ssid = nmcli("-g", "802-11-wireless.ssid", "con", "show", c[0]).strip()
+            if ssid:
+                connus.add(ssid)
+    return connus
+
+
+def wifi_etat():
+    connexion, ip, hotspot, cable = "", "", False, ""
+    for l in nmcli("-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "dev").splitlines():
+        c = champs_nmcli(l)
+        if len(c) < 4:
+            continue
+        if c[0] == WIFI_IFACE and c[2] == "connected":
+            connexion, hotspot = c[3], c[3] == WIFI_HOTSPOT
+        if c[1] == "ethernet" and c[2] == "connected":
+            cable = c[3]
+    if connexion:
+        ip = nmcli("-g", "IP4.ADDRESS", "dev", "show", WIFI_IFACE).split("\n")[0].split("/")[0]
+    ssid = ""
+    if connexion and not hotspot:
+        ssid = nmcli("-g", "802-11-wireless.ssid", "con", "show", connexion).strip() or connexion
+    return {"ssid": ssid, "ip": ip, "hotspot": hotspot, "cable": cable}
+
+
+def api_wifi_lire():
+    if not os.path.exists(WIFI_CMD) or not nmcli("-t", "-f", "DEVICE", "dev"):
+        return {"ok": True, "absent": True}
+    connus = wifi_connus()
+    vus = {}
+    for l in nmcli("-t", "-f", "IN-USE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "no").splitlines():
+        c = champs_nmcli(l)
+        if len(c) < 4 or not c[1]:
+            continue
+        ssid, signal = c[1], int(tetenam.nombre(c[2], 0))
+        if ssid in vus and vus[ssid]["signal"] >= signal:
+            continue
+        vus[ssid] = {"ssid": ssid, "signal": signal, "securise": c[3] not in ("", "--"),
+                     "actif": c[0].strip() == "*", "connu": ssid in connus}
+    e = wifi_etat()
+    reseaux = sorted(vus.values(), key=lambda r: (r["ssid"] != e["ssid"], not r["connu"], -r["signal"]))
+    try:
+        with open(WIFI_RESULTAT) as f:
+            resultat = json.load(f)
+    except (OSError, ValueError):
+        resultat = None
+    return {"ok": True, **e, "reseaux": reseaux, "resultat": resultat,
+            "hotspot_nom": hotspot_nom()}
+
+
+def hotspot_nom():
+    try:
+        with open("/etc/tete-nam-wifi.conf") as f:
+            for l in f:
+                m = re.match(r"\s*SSID=\"?([^\"\n]*)", l)
+                if m:
+                    return m.group(1)
+    except OSError:
+        pass
+    return "TeteNAM"
+
+
+def wifi_cmd(*args, entree=None, timeout=20):
+    r = subprocess.run(["sudo", "-n", WIFI_CMD, *args], input=entree, capture_output=True,
+                       text=True, timeout=timeout)
+    if r.returncode != 0:
+        lignes = (r.stdout + r.stderr).strip().splitlines()
+        raise ValueError(lignes[-1] if lignes else "Wi-Fi : échec")
+
+
+def api_wifi(d):
+    a = d.get("action")
+    ssid = str(d.get("ssid", ""))
+    if a in ("connecter", "oublier") and (not ssid or len(ssid) > 32 or "\n" in ssid):
+        raise ValueError("Nom de réseau invalide")
+    if a == "chercher":
+        wifi_cmd("chercher")
+    elif a == "connecter":
+        mdp = str(d.get("mdp", ""))
+        if mdp and not 8 <= len(mdp) <= 63:
+            raise ValueError("Le mot de passe Wi-Fi fait entre 8 et 63 caractères")
+        if "\n" in mdp:
+            raise ValueError("Caractère interdit")
+        wifi_cmd("connecter", ssid, entree=mdp + "\n")
+    elif a == "oublier":
+        wifi_cmd("oublier", ssid)
+    elif a == "hotspot":
+        wifi_cmd("hotspot")
+    else:
+        raise ValueError("Action inconnue")
+    return {"ok": True}
+
+
 LECTURES = {"/api/etat": api_etat, "/api/tout": api_tout, "/api/config": api_config,
-            "/api/systeme": api_systeme}
+            "/api/systeme": api_systeme, "/api/niveau": api_niveau,
+            "/api/wifi": api_wifi_lire}
 ROUTES = {"/api/param": api_param, "/api/actif": api_actif, "/api/ordre": api_ordre,
           "/api/ajouter": api_ajouter, "/api/retirer": api_retirer, "/api/preset": api_preset,
           "/api/calibration": api_calibration, "/api/volume": api_volume,
-          "/api/buffer": api_buffer, "/api/accordeur": api_accordeur, "/api/midi": api_midi}
+          "/api/buffer": api_buffer, "/api/accordeur": api_accordeur, "/api/midi": api_midi,
+          "/api/veille": api_veille, "/api/wifi": api_wifi}
 
 
 class Gestionnaire(BaseHTTPRequestHandler):

@@ -17,6 +17,7 @@ Commandes utilisées :
   SavePreset / LoadPreset / DeletePreset <nom>
   SetInputLevelDBu <dBu>     calibration d'entrée des NAM
   RescanFiles                relit les dossiers de modèles
+  Levels                     niveau de sortie des 10 dernières ms (veille de l'écran)
 """
 import shlex
 import socket
@@ -123,6 +124,18 @@ class Moteur:
                 r = {"dsp": nombre(d.get("DSP"), 0) * 100, "xruns": int(nombre(d.get("Xruns"))),
                      "chargement": d.get("Loading") == "1", "hauteur": nombre(d.get("Pitch"), -1)}
         return r
+
+    def niveaux(self):
+        """Niveau du son en sortie (linéaire, 1 = pleine échelle) : rms, grave
+        (sous 250 Hz), aigu et crête, sur les 10 dernières millisecondes."""
+        _, lignes, _ = self.commande("Levels", attente=0.2)
+        for l in lignes:
+            m = l.split()
+            if m[:1] == ["Levels"]:
+                d = dict(zip(m[1::2], m[2::2]))
+                return {k: round(nombre(d.get(c)), 5) for k, c in
+                        (("rms", "Rms"), ("grave", "Low"), ("aigu", "High"), ("crete", "Peak"))}
+        return None
 
     def programme(self):
         """État actuel : chaînes, réglages, blocs activés, calibration."""

@@ -126,9 +126,12 @@ sudo -u "$UTIL" -H env TETE_NAM_CONF=/etc/tete-nam.conf python3 "$CIBLE/tetenam.
 if [ "$ECRAN" = non ]; then
     sed -i 's/^ECRAN=.*/ECRAN=non/' /etc/tete-nam.conf
 fi
-# La page web relance le service audio quand on change le buffer
-echo "$UTIL ALL=(root) NOPASSWD: /usr/bin/systemctl restart --no-block tete-nam" \
-    > /etc/sudoers.d/tete-nam
+# La page web relance le service audio quand on change le buffer, et choisit
+# le réseau Wi-Fi (page Système) avec tete-nam-wifi
+cat > /etc/sudoers.d/tete-nam <<EOF
+$UTIL ALL=(root) NOPASSWD: /usr/bin/systemctl restart --no-block tete-nam
+$UTIL ALL=(root) NOPASSWD: /usr/local/bin/tete-nam-wifi
+EOF
 chmod 440 /etc/sudoers.d/tete-nam
 visudo -cf /etc/sudoers.d/tete-nam >/dev/null \
     || { rm -f /etc/sudoers.d/tete-nam; echo "ERREUR : règle sudo refusée"; exit 1; }

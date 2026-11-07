@@ -30,6 +30,7 @@ WEB = "http://127.0.0.1:%s" % os.environ.get("TETE_NAM_PORT", "8080")
 BUFFERS = (64, 128, 256, 512)
 NPERIODS = 2
 INPUT_DBU_DEFAUT = 16.0
+VEILLE_DEFAUT = 7          # secondes sans toucher avant la veille de l'écran
 
 
 def lire_conf():
@@ -78,6 +79,7 @@ def reglages(c=None):
         "ECRAN": "non" if c.get("ECRAN", "oui") == "non" else "oui",
         "ECRAN_ROTATION": c.get("ECRAN_ROTATION", "0") if c.get("ECRAN_ROTATION", "0") in ("0", "90", "180", "270") else "0",
         "MIDI_UART": c.get("MIDI_UART", "") if c.get("MIDI_UART", "").startswith("/dev/") else "",
+        "VEILLE": int(nombre(c.get("VEILLE"), VEILLE_DEFAUT, 0, 600)),
     }
 
 
@@ -126,6 +128,11 @@ ECRAN_ROTATION={ECRAN_ROTATION}
 # carte son sont toujours lues, sans réglage. Après changement :
 #   sudo systemctl restart tete-nam-web
 MIDI_UART={MIDI_UART}
+
+# Veille de l'écran de la tête : après ce nombre de secondes sans toucher
+# l'écran, il n'affiche plus que le logo et le niveau du son (0 = jamais).
+# Réglable depuis la page Système.
+VEILLE={VEILLE}
 """
 
 
