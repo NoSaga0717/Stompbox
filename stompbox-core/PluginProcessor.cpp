@@ -10,6 +10,11 @@
 #include <cstdlib>
 #endif
 
+// MSVC ne définit M_PI qu'avec _USE_MATH_DEFINES
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #if _WIN32
 void GetDataPathFromModule(std::filesystem::path& dataPath)
 {
