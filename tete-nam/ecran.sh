@@ -32,12 +32,17 @@ fi
 PROFIL="${XDG_RUNTIME_DIR:-/tmp}/tete-nam-chromium"
 rm -rf "$PROFIL"
 
+# Pas de flash blanc à l'ouverture : avant d'afficher la page, Chromium montre
+# une image vide de la couleur de son thème (blanc par défaut). En mode sombre,
+# et avec la couleur de thème noire (règle posée par install.sh), elle est
+# presque noire.
+
 # Rotation éventuelle, appliquée dans cage avant de lancer le navigateur
 LANCER="exec \"$NAV\" --kiosk --app=\"$URL\" --ozone-platform=wayland --user-data-dir=\"$PROFIL\" \
  --noerrdialogs --disable-infobars --no-first-run --disable-translate --disable-features=Translate,TranslateUI \
  --disable-pinch --overscroll-history-navigation=0 --disable-session-crashed-bubble \
  --check-for-update-interval=31536000 --password-store=basic --autoplay-policy=no-user-gesture-required \
- --disk-cache-size=1 --enable-features=OverlayScrollbar --lang=fr --accept-lang=fr"
+ --disk-cache-size=1 --enable-features=OverlayScrollbar --force-dark-mode --lang=fr --accept-lang=fr"
 if [ "${ECRAN_ROTATION:-0}" != 0 ] && command -v wlr-randr >/dev/null; then
     LANCER="for s in \$(wlr-randr | awk '/^[^ ]/{print \$1}'); do wlr-randr --output \$s --transform $ECRAN_ROTATION; done; $LANCER"
 fi

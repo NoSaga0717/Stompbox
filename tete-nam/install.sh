@@ -203,10 +203,11 @@ EOF
     sudo -u "$UTIL" mkdir -p "$MAISON/.icons/default"
     sudo -u "$UTIL" ln -sfn /usr/share/icons/tete-nam-invisible/cursors "$MAISON/.icons/default/cursors"
     printf '[Icon Theme]\nName=default\nInherits=tete-nam-invisible\n' | sudo -u "$UTIL" tee "$MAISON/.icons/default/index.theme" >/dev/null
-    # Chromium : jamais de proposition de traduction (la page est en français)
+    # Chromium : jamais de proposition de traduction (la page est en français),
+    # et thème noir : pas de flash blanc avant que la page s'affiche
     for d in /etc/chromium/policies/managed /etc/chromium-browser/policies/managed; do
         mkdir -p "$d"
-        echo '{"TranslateEnabled": false}' > "$d/tete-nam.json"
+        echo '{"TranslateEnabled": false, "BrowserThemeColor": "#000000"}' > "$d/tete-nam.json"
     done
     # La console texte ne s'affiche plus sur l'écran (Ctrl+Alt+F2 en garde une)
     systemctl disable getty@tty1.service 2>/dev/null || true
