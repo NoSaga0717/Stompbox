@@ -13,6 +13,7 @@ import json, os, shutil, sys, urllib.request
 ICI = os.path.dirname(os.path.abspath(__file__))
 SORTIE = os.path.join(ICI, "sortie")
 MODELES_DEMO = ["Ampli clean A2", "Ampli crunch A2", "Ampli lead A2", "Overdrive A2"]
+IR_DEMO = ["Baffle-4x12-base"]
 
 
 def capturer(url):
@@ -23,8 +24,8 @@ def capturer(url):
     for t in cfg["types"].values():
         for p in t["params"]:
             if p["type"] == "fichier":
-                p["valeurs"] = MODELES_DEMO
-                p["max"] = len(MODELES_DEMO) - 1
+                p["valeurs"] = IR_DEMO if p["nom"] == "Impulse" else MODELES_DEMO
+                p["max"] = len(p["valeurs"]) - 1
     with open(os.path.join(ICI, "config-demo.json"), "w", encoding="utf-8") as f:
         json.dump(cfg, f, ensure_ascii=False, indent=1)
 

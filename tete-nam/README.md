@@ -115,7 +115,9 @@ Le classement est rangé dans `~/tete-nam/bibliotheque.json`. Les fichiers reste
   - **appui long sur un bloc puis glisser** : le déplacer ailleurs dans la chaîne ;
   - **+** : ajouter un bloc après le bloc sélectionné.
 - **En bas, les réglages du bloc** : faire glisser un bouton vers le haut ou la droite pour monter, double toucher pour revenir à la valeur par défaut. Les boutons en gris sont les réglages avancés. **Activé / Bypass** coupe le bloc sans le retirer.
-- Bloc NAM : choix du modèle, **Normalisé** (tous les modèles sortent au même volume) ou **Calibré** (le modèle sort au niveau du vrai matériel, utile pour une pédale avant un ampli), entrée, sortie et qualité (taille du modèle A2 qui tourne, 1 = complet).
+- Bloc NAM : choix du modèle, **Normalisé** (tous les modèles sortent au même volume) ou **Calibré** (le modèle sort au niveau du vrai matériel, utile pour une pédale avant un ampli), entrée, sortie. Le modèle tourne toujours en qualité complète : un fichier A2 contient aussi une version réduite (lite), que la tête n'utilise jamais.
+- Bloc **Baffle (IR)** : simulation de baffle par réponse impulsionnelle (fichier `.wav`). Les captures « ampli seul » n'ont pas de baffle : pour écouter au casque ou sur des enceintes de studio, placez un bloc Baffle juste après l'ampli NAM, sinon le son est criard et bourdonnant. Pas de baffle quand la tête attaque une vraie baffle guitare, ni avec un modèle « ampli + baffle ». Une IR de base est fournie (`Baffle-4x12-base`, courbe 4x12 dessinée à la main, pas une mesure) ; une vraie IR mesurée sonnera mieux : envoyez vos `.wav` depuis la page (Système → Envoyer…, ou dans le choix d'IR du bloc). Elles sont rangées dans `~/tete-nam/Cabinets`. Réglages : **Direct** (son sans baffle mélangé) et **Baffle** (niveau de l'IR).
+- **IN / OUT en rouge** : la carte son écrête. IN rouge = la guitare arrive trop fort sur le convertisseur d'entrée (baisser le gain de la carte, puis refaire la calibration) ; OUT rouge = le son dépasse 0 dBFS en sortie (baisser la sortie d'un bloc ou le volume général). Les crêtes d'entrée et de sortie sont aussi dans Système.
 
 On peut mettre autant de blocs NAM et d'effets qu'on veut, dans n'importe quel ordre (16 blocs au maximum). La limite réelle est la charge DSP.
 
@@ -141,6 +143,7 @@ Repères :
 - **Xruns** : 0 en jouant 5 minutes. Le compteur repart à zéro à chaque redémarrage du moteur.
 - **Température** sous 80 °C.
 - **Throttling** `0x0`. Autre chose = alimentation trop faible ou surchauffe.
+- **Crête entrée / sortie** : pas d'« ÉCRÊTE » en jouant fort (sinon IN ou OUT passe aussi au rouge sur l'écran).
 
 Autres commandes : `tete-nam presets` (liste), `tete-nam preset "Nom"` (charger), `tete-nam cpu`.
 
@@ -192,7 +195,7 @@ La chaîne et les presets ne sont pas dans ce fichier : ils sont dans `~/tete-na
 | Réglage | Rôle |
 |---|---|
 | `CARD` | Nom de la carte son (`cat /proc/asound/cards` pour le vérifier) |
-| `RATE` | 48000, comme les modèles |
+| `RATE` | Toujours 48000, comme les modèles (une autre valeur est ignorée ; si la carte son ne suit pas, un bandeau rouge le dit) |
 | `PERIOD`, `NPERIODS` | Taille (64 à 512) et nombre (2) de buffers JACK |
 | `INPUT`, `OUTPUTS` | Entrée guitare et sorties de la carte son (ports JACK) |
 | `INPUT_DBU` | Calibration d'entrée : dBu pour 0 dBFS (16 pour la M4) |
@@ -222,6 +225,14 @@ Après une modification à la main : `sudo systemctl restart tete-nam` (audio) o
 Fichiers installés dans `/opt/tete-nam`. Le moteur travaille dans `~/tete-nam` (presets, lien `NAM` vers `~/nam`). La disposition des chaînes du moteur est dans `chaine-init.txt` : accordeur en entrée, la chaîne `Main` (celle de l'interface et des presets), volume général en sortie.
 
 ## Si ça ne marche pas
+
+- **Le son n'est pas bon** (criard, bourdonnant, « pas comme dans le plugin ») :
+  1. Écoute au casque ou sur des enceintes de studio avec un modèle « ampli seul » : il faut un bloc **Baffle (IR)** juste après l'ampli NAM (voir §5). C'est la cause la plus fréquente.
+  2. Guitare branchée sur une entrée **instrument** (Hi-Z) : MOTU M4 entrée 1 en mode guitare ; Behringer UMC, entrée avant avec **INST** enfoncé. Une entrée micro ou ligne charge les micros de la guitare et étouffe le son.
+  3. **IN ou OUT rouge** : écrêtage de la carte son, voir §5.
+  4. **Calibration d'entrée** fausse : un modèle qui saturait trop ou pas assez. La valeur dépend de la carte **et** de la position du bouton de gain de la carte ; à mesurer pour chaque carte.
+  5. **Xruns** qui montent en jouant : craquements. Monter le buffer (Système).
+  6. Pédale NAM avant un ampli NAM : mettre la pédale en **Calibré**, sinon elle n'attaque pas l'ampli au bon niveau.
 
 - `tete-nam etat` dit *inactive* ou *activating* : `journalctl -u tete-nam -n 50`. Les messages commencent par ERREUR et disent quoi faire.
 - **Carte introuvable** : `cat /proc/asound/cards`, puis mettez dans `CARD=` le nom entre crochets de la M4.

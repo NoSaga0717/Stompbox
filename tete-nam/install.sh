@@ -109,6 +109,11 @@ etape "5/8 Réglages, presets et modèles"
 # Modèles .nam : ~/nam ; dossier de travail du moteur : ~/tete-nam
 sudo -u "$UTIL" mkdir -p "$MAISON/nam" "$MAISON/tete-nam/Presets" "$MAISON/tete-nam/Cabinets" \
     "$MAISON/tete-nam/Reverb" "$MAISON/tete-nam/Music"
+# IR de baffle de base (pour écouter au casque ou sur enceintes de studio),
+# sans écraser une IR du même nom déjà là
+for IR in "$ICI"/ir/*.wav; do
+    [ -e "$MAISON/tete-nam/Cabinets/$(basename "$IR")" ] || sudo -u "$UTIL" cp "$IR" "$MAISON/tete-nam/Cabinets/"
+done
 if [ ! -L "$MAISON/tete-nam/NAM" ]; then
     rm -rf "$MAISON/tete-nam/NAM"
     sudo -u "$UTIL" ln -s "$MAISON/nam" "$MAISON/tete-nam/NAM"

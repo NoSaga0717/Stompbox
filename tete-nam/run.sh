@@ -3,6 +3,8 @@
 # Si l'un des deux s'arrête, on sort et systemd relance le tout.
 set -u
 source /etc/tete-nam.conf
+# Toujours 48 kHz, la fréquence des modèles NAM (le moteur ne rééchantillonne pas)
+RATE=48000
 DONNEES="$HOME/tete-nam"           # presets, chaîne en cours, lien vers les modèles
 
 # Pas de session D-Bus ici : on évite la réservation de carte par D-Bus

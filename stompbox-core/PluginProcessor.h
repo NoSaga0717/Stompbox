@@ -82,6 +82,10 @@ protected:
 	float maxDSPLoad = 0;
 	float statusMaxDSPLoad = 0;		// max DSP load since the last "Status" command
 	std::atomic<int> xrunCount = 0;
+	// Input and output peaks (linear, max since the last "Status") and clip counts (blocks that
+	// reached digital full scale: the converter clips there). Written by the audio thread.
+	std::atomic<float> statusInPeak = 0, statusOutPeak = 0;
+	std::atomic<int> inClipCount = 0, outClipCount = 0;
 	// Output level meter for remote interfaces ("Levels" command): computed in the audio
 	// thread over ~10 ms windows, published lock-free, read by the command thread
 	double levelSumSq = 0, levelLowSumSq = 0;
@@ -96,6 +100,7 @@ protected:
 	double levelBandSumSq[LEVEL_BANDS] = {};
 	std::atomic<float> levelBands[LEVEL_BANDS] = {};
 	void MeasureOutputLevel(const float* output, size_t count);
+	void MeasurePeak(const float* data, size_t count, std::atomic<float>& peak, std::atomic<int>& clips);
 	int clientUpdateFrame = 0;
 	std::thread* presetLoadThread = nullptr;
 	int ramp = 0;

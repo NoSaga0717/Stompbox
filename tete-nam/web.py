@@ -27,7 +27,7 @@ API (tout en JSON) :
                       dessin du son : onde ou spectre
   GET  /api/wifi      connexion en cours, réseaux visibles, dernier résultat
   POST /api/wifi      {action: chercher|connecter|oublier|hotspot, ssid, mdp}
-  POST /api/envoyer   fichier .nam brut, nom dans l'en-tête X-Nom-Fichier
+  POST /api/envoyer   fichier .nam (modèle) ou .wav (IR de baffle) brut, nom dans l'en-tête X-Nom-Fichier
   POST /api/midi      {action: apprendre|annuler|oublier|mode|canal, ...}
   GET  /api/tone3000  connexion TONE3000, téléchargement et essai en cours
   POST /api/tone3000  {action: connecter|annuler|deconnecter|liste|tone|telecharger|
@@ -90,6 +90,7 @@ TYPES_UI = [
     ("Screamer", "Overdrive", "Overdrive", "drive", "◆"),
     ("Fuzz", "Fuzz", "Fuzz", "drive", "✸"),
     ("NAM", "NAM", "NAM", "nam", "▣"),
+    ("Cabinet", "Baffle (IR)", "Baffle", "nam", "▦"),
     ("Wah", "Wah", "Wah", "filtre", "◠"),
     ("AutoWah", "Auto-wah", "Auto-wah", "filtre", "◡"),
     ("EQ-7", "EQ 7 bandes", "EQ", "filtre", "☰"),
@@ -103,7 +104,7 @@ TYPES_UI = [
     ("Reverb", "Réverbe", "Réverbe", "temps", "∿"),
     ("Level", "Volume", "Volume", "util", "◖"),
 ]
-CATEGORIES = [("dyn", "Dynamique"), ("drive", "Saturation"), ("nam", "Ampli / pédale NAM"),
+CATEGORIES = [("dyn", "Dynamique"), ("drive", "Saturation"), ("nam", "Ampli, pédale et baffle"),
               ("filtre", "Filtres et EQ"), ("mod", "Modulation"), ("temps", "Délai et réverbe"),
               ("util", "Utilitaires")]
 # Noms des réglages (stompbox est en anglais). "Type.Réglage" pour un cas particulier.
@@ -113,11 +114,12 @@ LIBELLES = {
     "Blend": "Mélange", "Fuzz": "Fuzz", "Octave": "Octave", "Bias": "Polarisation", "Wah": "Pédale",
     "Speed": "Vitesse", "Depth": "Profondeur", "FrqWidth": "Largeur", "FBack": "Réinjection",
     "Rate": "Vitesse", "Shape": "Forme", "Delay": "Temps", "Mix": "Mix", "Warm": "Chaleur",
-    "HiLo": "Filtre", "Size": "Taille", "Decay": "Durée", "Model": "Modèle", "Quality": "Qualité",
+    "HiLo": "Filtre", "Size": "Taille", "Decay": "Durée", "Model": "Modèle",
     "OutputMode": "Sortie", "Low": "Coupe-bas", "High": "Coupe-haut", "Strength": "Force",
     "Soft": "Douceur", "Hold": "Maintien", "Vol": "Volume",
     "NAM.Gain": "Entrée", "NAM.Volume": "Sortie", "Delay.FBack": "Répétitions",
     "Reverb.Blend": "Mix", "Compressor.Blend": "Mix",
+    "Impulse": "IR", "Cabinet.Dry": "Direct", "Cabinet.Wet": "Baffle",
 }
 VALEURS_LISTE = {"Normalized": "Normalisé", "Calibrated": "Calibré"}
 VERSION = open(os.path.join(ICI, "VERSION")).read().strip() if os.path.exists(
@@ -131,7 +133,12 @@ etat = {
     "moteur": False, "dsp": None, "histo": deque(maxlen=120), "xruns": 0,
     "chargement": False, "hauteur": -1.0, "accordeur": False, "throttled": "?",
     "preset": "", "modifie": False, "a_sauver": 0.0, "generation": 0, "vus": set(),
+    # Crêtes d'entrée et de sortie (dBFS, dernière seconde), heure du dernier écrêtage
+    "crete_in": None, "crete_out": None, "ecrete_in": 0.0, "ecrete_out": 0.0,
+    "ecretages": (None, None), "frequence": None,
 }
+DUREE_ECRETAGE = 4        # secondes pendant lesquelles IN / OUT restent rouges après un écrêtage
+FREQUENCE_MODELES = 48000  # les modèles NAM sont entraînés à 48 kHz
 
 
 def journal(*a):
@@ -260,6 +267,34 @@ def temperature():
         return None
 
 
+def db_fs(lineaire):
+    if lineaire is None:
+        return None
+    return round(20 * math.log10(lineaire), 1) if lineaire > 1e-6 else -120.0
+
+
+def suivre_niveaux(st):
+    """Crêtes de la dernière seconde et écrêtages (le moteur compte les blocs
+    arrivés à pleine échelle : la carte son écrête à l'entrée ou à la sortie)."""
+    etat["crete_in"], etat["crete_out"] = db_fs(st["crete_in"]), db_fs(st["crete_out"])
+    avant_in, avant_out = etat["ecretages"]
+    maintenant = time.time()
+    if avant_in is not None and st["ecretages_in"] > avant_in:
+        etat["ecrete_in"] = maintenant
+    if avant_out is not None and st["ecretages_out"] > avant_out:
+        etat["ecrete_out"] = maintenant
+    etat["ecretages"] = (st["ecretages_in"], st["ecretages_out"])
+
+
+def niveaux_es():
+    maintenant = time.time()
+    return {"entree": etat["crete_in"], "sortie": etat["crete_out"],
+            "ecrete_entree": maintenant - etat["ecrete_in"] < DUREE_ECRETAGE,
+            "ecrete_sortie": maintenant - etat["ecrete_out"] < DUREE_ECRETAGE,
+            "frequence": etat["frequence"],
+            "frequence_ok": etat["frequence"] in (None, FREQUENCE_MODELES)}
+
+
 def boucle():
     n = 0
     while True:
@@ -269,7 +304,8 @@ def boucle():
                 etat["generation"] = moteur.generation
                 resynchroniser()
             etat.update(moteur=True, dsp=st["dsp"], xruns=st["xruns"],
-                        chargement=st["chargement"], hauteur=st["hauteur"])
+                        chargement=st["chargement"], hauteur=st["hauteur"], frequence=st["frequence"])
+            suivre_niveaux(st)
         except (MoteurAbsent, ValueError, OSError) as e:
             if etat["moteur"]:
                 journal("Moteur audio injoignable :", e)
@@ -326,7 +362,7 @@ def api_etat():
             "xruns": etat["xruns"], "temp": temperature(), "throttled": etat["throttled"],
             "preset": etat["preset"], "numero": numero_preset(), "modifie": etat["modifie"],
             "chargement": etat["chargement"], "accordeur": accordeur(), "midi": etat_midi(),
-            "bib": BIB.rev, "t3k": T3K.rev + t3k_vivant["rev"]}
+            "bib": BIB.rev, "t3k": T3K.rev + t3k_vivant["rev"], "niveaux": niveaux_es()}
 
 
 # Niveau du son pour la veille de l'écran : un fil interroge le moteur environ
@@ -402,7 +438,7 @@ def api_config():
 
 def api_systeme():
     return {"histo": list(etat["histo"]), "temp": temperature(), "throttled": etat["throttled"],
-            "xruns": etat["xruns"], "dsp": etat["dsp"], "version": VERSION,
+            "xruns": etat["xruns"], "dsp": etat["dsp"], "version": VERSION, "niveaux": niveaux_es(),
             "service": tetenam.sh("systemctl is-active tete-nam")}
 
 
@@ -517,6 +553,15 @@ def api_ajouter(d):
                     modele = v
                     break
             moteur.commande(f'SetParam {nouveau} Model "{modele}"')
+        elif t == "Cabinet":
+            # Un baffle sans IR laisse passer le son tel quel : on prend l'IR du
+            # dernier baffle de la chaîne, ou la première de la liste
+            prm = param_de("Cabinet", "Impulse")
+            irs = prm["valeurs"] if prm else []
+            ir = next((v for v in (etat["prog"]["valeurs"].get(a, {}).get("Impulse") for a in reversed(ids)
+                                    if type_de(a) == "Cabinet") if v in irs), irs[0] if irs else "")
+            if ir:
+                moteur.commande(f'SetParam {nouveau} Impulse "{texte_sur(ir)}"')
         rafraichir()
         modifie()
         return {"ok": True, "id": nouveau}
@@ -690,14 +735,19 @@ def relancer_audio(quoi):
 
 
 TAILLE_MAX = 50 * 1024 * 1024   # 50 Mo, largement plus qu'un .nam
+TAILLE_MAX_IR = 10 * 1024 * 1024
+DOSSIER_IR = os.path.join(DONNEES, "Cabinets")   # IR de baffle (.wav), lues par le bloc Baffle
 
 
 def api_envoyer(nom, contenu):
-    """Reçoit un fichier .nam et le range dans ~/nam."""
+    """Reçoit un modèle .nam (rangé dans ~/nam) ou une IR de baffle .wav
+    (rangée dans ~/tete-nam/Cabinets)."""
     nom = os.path.basename(nom).strip().replace(" ", "_")
     nom = re.sub(r"[^\w.\-]", "_", nom)
+    if nom.lower().endswith(".wav") and not nom.startswith("."):
+        return envoyer_ir(nom, contenu)
     if not nom.lower().endswith(".nam") or nom.startswith("."):
-        return {"ok": False, "erreur": f"{nom} : seuls les fichiers .nam sont acceptés"}
+        return {"ok": False, "erreur": f"{nom} : seuls les fichiers .nam (modèles) et .wav (IR de baffle) sont acceptés"}
     try:
         donnees = json.loads(contenu)
         assert isinstance(donnees, dict) and "architecture" in donnees
@@ -713,6 +763,22 @@ def api_envoyer(nom, contenu):
     BIB.ajouter_fichier(tetenam.nom_modele(final))
     relire_modeles()
     return {"ok": True, "nom": nom, "remplace": existait}
+
+
+def envoyer_ir(nom, contenu):
+    if len(contenu) > TAILLE_MAX_IR:
+        return {"ok": False, "erreur": f"{nom} : trop gros pour une IR de baffle (10 Mo au plus)"}
+    if len(contenu) < 44 or contenu[:4] != b"RIFF" or contenu[8:12] != b"WAVE":
+        return {"ok": False, "erreur": f"{nom} : ce n'est pas un fichier WAV"}
+    os.makedirs(DOSSIER_IR, exist_ok=True)
+    final = os.path.join(DOSSIER_IR, nom)
+    temp = final + ".envoi"
+    with open(temp, "wb") as f:
+        f.write(contenu)
+    existait = os.path.exists(final)
+    os.replace(temp, final)
+    relire_modeles()
+    return {"ok": True, "nom": nom, "remplace": existait, "ir": True}
 
 
 def relire_modeles():

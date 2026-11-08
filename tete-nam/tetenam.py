@@ -28,6 +28,7 @@ DOSSIER_MODELES = os.environ.get("TETE_NAM_MODELES", os.path.expanduser("~/nam")
 EN_COURS = os.path.join(DONNEES, "en-cours.txt")
 WEB = "http://127.0.0.1:%s" % os.environ.get("TETE_NAM_PORT", "8080")
 
+FREQUENCE = 48000
 BUFFERS = (64, 128, 256, 512)
 NPERIODS = 2
 INPUT_DBU_DEFAUT = 16.0
@@ -70,7 +71,9 @@ def reglages(c=None):
     periode = int(nombre(c.get("PERIOD"), 128))
     return {
         "CARD": c.get("CARD", "M4"),
-        "RATE": int(nombre(c.get("RATE"), 48000)),
+        # Toujours 48 kHz : les modèles NAM sont entraînés à 48 kHz et le moteur ne
+        # rééchantillonne pas (à une autre fréquence, le son de chaque modèle change)
+        "RATE": FREQUENCE,
         "PERIOD": periode if periode in BUFFERS else 128,
         "NPERIODS": int(nombre(c.get("NPERIODS"), NPERIODS, 2, 3)),
         "INPUT": c.get("INPUT", "system:capture_1"),
@@ -97,7 +100,8 @@ MODELE_CONF = """\
 # CARD=aucune : mode test sans carte son (l'interface marche, pas de son)
 CARD={CARD}
 
-# Fréquence d'échantillonnage : doit être celle des modèles (48 kHz en général)
+# Fréquence d'échantillonnage : toujours 48000, celle des modèles NAM
+# (une autre valeur est remise à 48000 par la page)
 RATE={RATE}
 
 # Taille du buffer JACK : 64, 128, 256 ou 512 (réglable depuis la page)
@@ -182,7 +186,6 @@ def migrer():
             lignes += [f"SetParam {bloc} Enabled {0 if c.get(cle + '_ACTIF') == '0' else 1}",
                        f'SetParam {bloc} Model "{nom_modele(modele)}"',
                        f"SetParam {bloc} OutputMode {mode}",
-                       f"SetParam {bloc} Quality {nombre(c.get(cle + '_QUALITY'), 1.0, 0, 1)}",
                        f"SetParam {bloc} Gain {nombre(c.get(cle + '_IN_DB'), 0.0)}",
                        f"SetParam {bloc} Volume {nombre(c.get(cle + '_OUT_DB'), 0.0)}"]
         if ids:
@@ -229,12 +232,22 @@ def etat():
     print("Throttling    :", thr, "(0x0 = parfait)" if thr == "0x0"
           else "(PAS 0x0 : alim trop faible ou trop chaud)")
     r = t.get("reglages", {})
-    print(f"Audio         : {r.get('RATE')} Hz, buffer {r.get('PERIOD')} x {r.get('NPERIODS')}, "
-          f"entrée {r.get('INPUT_DBU')} dBu")
+    n = e.get("niveaux") or {}
+    freq = n.get("frequence") or r.get("RATE")
+    print(f"Audio         : {freq} Hz, buffer {r.get('PERIOD')} x {r.get('NPERIODS')}, "
+          f"entrée {r.get('INPUT_DBU')} dBu" + ("" if n.get("frequence_ok", True) else
+                                               "  <- PAS 48000 : le son des modèles est faussé"))
+
+    def crete(v, ecrete, conseil):
+        txt = "–" if v is None else f"{v:.1f} dBFS"
+        return txt + (f"  <- ÉCRÊTE : {conseil}" if ecrete else "")
+    print("Crête entrée  :", crete(n.get("entree"), n.get("ecrete_entree"), "baisser le gain de la carte son"))
+    print("Crête sortie  :", crete(n.get("sortie"), n.get("ecrete_sortie"), "baisser le volume"))
     print("Preset        :", (t.get("preset") or "(sans nom)") + (" (modifié)" if t.get("modifie") else ""))
     for b in t.get("chaine", []):
         v = b.get("valeurs", {})
-        detail = f" : {v.get('Model') or 'aucun modèle'}" if b["type"] == "NAM" else ""
+        detail = f" : {v.get('Model') or 'aucun modèle'}" if b["type"] == "NAM" else \
+            f" : {v.get('Impulse') or 'aucune IR'}" if b["type"] == "Cabinet" else ""
         print(f"  {'●' if b['actif'] else '○'} {b['id']}{detail}")
 
 

@@ -133,6 +133,7 @@ canvas{width:100%;height:70px;display:block;margin-top:8px}
 #message.info{background:#1d2a3a;color:#d6e6ff;border-color:#34507a}
 #bandeau{display:none;background:#3a1d1d;color:#ffd6d6;text-align:center;font-size:13px;padding:4px}
 #bandeau.ouvert{display:block}
+.io.ecrete{background:#c0392b !important;border-color:#ff6b5b !important;color:#fff !important;box-shadow:0 0 10px #ff4b3b}
 
 @media (max-width:620px){
   header{height:auto;flex-wrap:wrap;padding:6px 8px;gap:6px}
@@ -374,7 +375,7 @@ header{background:linear-gradient(180deg,#14120f,var(--barre));border-bottom:1px
 <div id="accord"><div id="anote">–</div><div id="abarre"><div id="aindic"></div></div><div id="ahz">Jouez une corde</div>
   <button id="afermer" style="margin-top:24px;padding:12px 30px;font-size:17px">Fermer l'accordeur</button></div>
 <div id="message"></div>
-<input type="file" id="fichiers" accept=".nam" multiple hidden>
+<input type="file" id="fichiers" accept=".nam,.wav" multiple hidden>
 
 <script>
 "use strict";
@@ -442,6 +443,7 @@ function nomBloc(b) {
 function resume(b) {
   const c = cfgType(b.type); if (!c) return "";
   if (b.type === "NAM") return nomAffiche(valeur(b, "Model")) || "aucun modèle";
+  if (b.type === "Cabinet") return b.actif ? (valeur(b, "Impulse") || "aucune IR") : "bypass";
   if (!b.actif) return "bypass";
   const p = c.params.find(p => !p.avance && p.type === "bouton");
   return p ? fmt(p, valeur(b, p.nom)) : "";
@@ -463,10 +465,21 @@ function dessinerHaut() {
   presetEnVeille();
   // Logo de démarrage (écran de la tête) : jusqu'au moteur prêt, 60 s au plus
   if (E.moteur || performance.now() > 60000) $("demarrage").classList.remove("ouvert");
-  const b = $("bandeau");
-  b.classList.toggle("ouvert", !E.moteur);
-  b.textContent = E.moteur ? "" : "Le moteur audio ne répond pas (redémarrage en cours ?)";
+  const b = $("bandeau"), n = E.niveaux || {};
+  const alerte = !E.moteur ? "Le moteur audio ne répond pas (redémarrage en cours ?)" :
+    n.frequence_ok === false ? `La carte son tourne à ${n.frequence / 1000} kHz au lieu de 48 kHz : le son des modèles NAM est faussé` : "";
+  b.classList.toggle("ouvert", !!alerte);
+  b.textContent = alerte;
+  majEcretage();
   dessinerAccordeur();
+}
+/* IN ou OUT en rouge quelques secondes après un écrêtage de la carte son
+   (entrée trop forte pour le convertisseur, ou sortie au-delà de 0 dBFS) */
+function majEcretage() {
+  const n = (E && E.niveaux) || {};
+  const i = $("ioIn"), o = $("ioOut");
+  if (i) { i.classList.toggle("ecrete", !!n.ecrete_entree); i.title = n.ecrete_entree ? "L'entrée écrête : baissez le gain de la carte son" : ""; }
+  if (o) { o.classList.toggle("ecrete", !!n.ecrete_sortie); o.title = n.ecrete_sortie ? "La sortie écrête : baissez le volume des blocs ou le volume général" : ""; }
 }
 
 /* ---------- Chaîne ---------- */
@@ -474,15 +487,16 @@ function dessinerChaine() {
   const r = $("rangee");
   if (!T || !C) return;
   const sc = r.scrollLeft;
-  let h = '<div class="io">IN</div>';
+  let h = '<div class="io" id="ioIn">IN</div>';
   for (const b of T.chaine) {
     const c = cfgType(b.type) || {categorie: "util", icone: "?"};
-    const vide = b.type === "NAM" && !valeur(b, "Model");
+    const vide = (b.type === "NAM" && !valeur(b, "Model")) || (b.type === "Cabinet" && !valeur(b, "Impulse"));
     h += `<div class="blk cat-${c.categorie}${b.actif ? "" : " off"}${b.id === sel ? " sel" : ""}${vide ? " vide" : ""}" data-id="${echap(b.id)}">
       <div class="ic">${c.icone}</div>${echap(nomBloc(b))}<div class="st">${echap(resume(b))}</div></div>`;
   }
-  h += '<button class="plus" id="ajout" aria-label="Ajouter un bloc">+</button><div class="io">OUT</div><div class="fil"></div>';
+  h += '<button class="plus" id="ajout" aria-label="Ajouter un bloc">+</button><div class="io" id="ioOut">OUT</div><div class="fil"></div>';
   r.innerHTML = h;
+  majEcretage();
   const fil = r.querySelector(".fil");
   fil.style.width = Math.max(0, r.scrollWidth - 60) + "px";
   r.scrollLeft = sc;
@@ -590,7 +604,8 @@ function dessinerPanneau() {
   const modele = c.params.find(q => q.type === "fichier");
   const listes = c.params.filter(q => q.type === "liste");
   let h = `<div id="ptete"><div id="ptitre">${echap(c.nom)}${b.id.includes("_") ? " " + echap(b.id.split("_")[1]) : ""}`;
-  if (modele) h += `<button class="mod" id="choixModele">${echap(nomAffiche(valeur(b, modele.nom)) || "Choisir un modèle…")} ▾</button>`;
+  if (modele) h += `<button class="mod" id="choixModele">${echap(b.type === "NAM" ? nomAffiche(valeur(b, modele.nom)) || "Choisir un modèle…" :
+    valeur(b, modele.nom) || "Choisir une IR…")} ▾</button>`;
   h += `</div>`;
   for (const q of listes) {
     h += `<span class="seg" data-liste="${echap(q.nom)}">` + q.valeurs.map((v, i) =>
@@ -612,7 +627,7 @@ function dessinerPanneau() {
   p.querySelector("#bypass").onclick = () => basculer(b);
   p.querySelector("#midiBloc").onclick = () => feuilleMidiBloc(b);
   p.querySelector("#retirer").onclick = () => retirer(b);
-  if (modele) p.querySelector("#choixModele").onclick = () => feuilleModele(b, modele);
+  if (modele) p.querySelector("#choixModele").onclick = () => b.type === "NAM" ? feuilleModele(b, modele) : feuilleIR(b, modele);
   p.querySelectorAll("[data-liste]").forEach(s => s.querySelectorAll("button").forEach(bt =>
     bt.onclick = () => { envoyerParam(b, s.dataset.liste, bt.dataset.v, true); dessinerPanneau(); dessinerChaine(); }));
   p.querySelectorAll("[data-inter]").forEach(bt => bt.onclick = () => {
@@ -877,6 +892,23 @@ function feuilleModele(b, q) {
   }});
 }
 
+/* IR de baffle (.wav dans ~/tete-nam/Cabinets) : les captures NAM « ampli seul »
+   n'ont pas de baffle, il en faut un pour écouter au casque ou sur des enceintes de studio */
+function feuilleIR(b, q) {
+  const courant = valeur(b, q.nom);
+  let h = (q.valeurs || []).length ? `<div class="liste">` + q.valeurs.map(v =>
+    `<div class="ligne"><button class="${v === courant ? "courant" : ""}" data-ir="${echap(v)}">${echap(v)}</button></div>`).join("") + `</div>` :
+    `<div class="videmsg">Aucune IR sur la tête.</div>`;
+  h += `<div class="pied">Pour écouter au casque ou sur des enceintes de studio, placez ce bloc juste après l'ampli NAM.
+    Pas besoin de baffle (IR) quand la tête attaque une vraie baffle guitare, ni avec un modèle « ampli + baffle ».</div>`;
+  if (!ECRAN) h += `<div class="rangs"><button id="irenvoi">Envoyer des IR .wav vers la tête…</button></div>`;
+  const f = ouvrir(`IR de ${nomBloc(b)}`, h);
+  f.querySelectorAll("[data-ir]").forEach(bt => bt.onclick = () => {
+    fermer(); envoyerParam(b, q.nom, bt.dataset.ir, true); dessinerChaine(); dessinerPanneau();
+  });
+  const env = f.querySelector("#irenvoi"); if (env) env.onclick = () => { fermer(); envoyerFichiers(); };
+}
+
 function feuillePresets() {
   if (!T) return;
   let h = `<div class="rangs"><button id="pnouveau">Nouveau (chaîne vide)</button><button id="psous">Enregistrer sous…</button></div>`;
@@ -939,7 +971,9 @@ async function feuilleSysteme() {
   if (!T) return;
   const r = T.reglages;
   let h = `<div class="stats"><div><small>Charge DSP</small><b id="ydsp">–</b></div><div><small>Xruns</small><b id="yxr">–</b></div>
-    <div><small>Température</small><b id="ytemp">–</b></div><div><small>Throttling</small><b id="ythr" style="font-size:15px">–</b></div></div>
+    <div><small>Température</small><b id="ytemp">–</b></div><div><small>Throttling</small><b id="ythr" style="font-size:15px">–</b></div>
+    <div><small>Crête entrée</small><b id="ycin">–</b></div><div><small>Crête sortie</small><b id="ycout">–</b></div>
+    <div style="grid-column:span 2"><small>Niveaux</small><span id="yniv" style="font-size:13px">–</span></div></div>
     <canvas id="ygraphe"></canvas>
     <div class="etiq">Buffer JACK (× ${r.NPERIODS}) · changer relance l'audio (5 s de silence)</div><div class="rangs">` +
     T.buffers.map(b => `<button class="${b === r.PERIOD ? "prim" : ""}" data-buf="${b}">${b} · ${(b * r.NPERIODS / r.RATE * 1000).toFixed(1)} ms</button>`).join("") + `</div>
@@ -949,7 +983,7 @@ async function feuilleSysteme() {
     <div class="etiq">Volume général</div>
     <div class="rangs"><button data-vol="-3">−3</button><button data-vol="-1">−1</button><b id="yvol" style="min-width:90px;text-align:center;font-size:18px">${T.volume} dB</b>
       <button data-vol="1">+1</button><button data-vol="3">+3</button><button data-vol="0" data-abs="1">0 dB</button></div>`;
-  if (!ECRAN) h += `<div class="etiq">Modèles</div><div class="rangs"><button id="yenvoi">Envoyer des fichiers .nam vers la tête…</button></div>`;
+  if (!ECRAN) h += `<div class="etiq">Modèles</div><div class="rangs"><button id="yenvoi">Envoyer des modèles .nam ou des IR .wav vers la tête…</button></div>`;
   h += `<div class="etiq">Veille de l'écran de la tête : délai et dessin du son</div><div class="rangs">` +
     [[0, "Jamais"], [7, "7 s"], [15, "15 s"], [30, "30 s"], [60, "1 min"]].map(([v, t]) =>
       `<button class="${v === +(r.VEILLE ?? 7) ? "prim" : ""}" data-veille="${v}">${t}</button>`).join("") +
@@ -1031,7 +1065,13 @@ async function feuilleSysteme() {
       $("ytemp").textContent = s.temp == null ? "–" : s.temp.toFixed(0) + " °C";
       $("ythr").textContent = s.throttled === "0x0" ? "aucun" : s.throttled;
       $("ythr").style.color = s.throttled === "0x0" ? "var(--ok)" : "var(--mal)";
-      $("ypied").textContent = `${r.RATE / 1000} kHz · carte ${r.CARD} · version ${s.version}`;
+      const n = s.niveaux || {}, crete = v => v == null ? "–" : (v <= -119 ? "silence" : v.toFixed(1) + " dBFS");
+      $("ycin").textContent = crete(n.entree); $("ycin").style.color = n.ecrete_entree ? "var(--mal)" : "";
+      $("ycout").textContent = crete(n.sortie); $("ycout").style.color = n.ecrete_sortie ? "var(--mal)" : "";
+      $("yniv").textContent = n.ecrete_entree ? "L'entrée écrête : baissez le gain de la carte son" :
+        n.ecrete_sortie ? "La sortie écrête : baissez le volume des blocs ou le volume général" :
+        "Pas d'écrêtage (crêtes de la dernière seconde)";
+      $("ypied").textContent = `${(n.frequence || r.RATE) / 1000} kHz · carte ${r.CARD} · version ${s.version}`;
       graphe($("ygraphe"), s.histo);
     } catch (e) {}
   };

@@ -1,5 +1,5 @@
 {
- "cfg": "071f6ab7df",
+ "cfg": "359b3e2010",
  "types": {
   "NoiseGate": {
    "nom": "Noise gate",
@@ -319,19 +319,6 @@
      "libelle": "Modèle"
     },
     {
-     "nom": "Quality",
-     "type": "bouton",
-     "min": 0.0,
-     "max": 1.0,
-     "defaut": 1.0,
-     "format": "{0:0.00}",
-     "avance": true,
-     "sortie": false,
-     "description": "Model quality scale factor",
-     "valeurs": [],
-     "libelle": "Qualité"
-    },
-    {
      "nom": "OutputMode",
      "type": "liste",
      "min": 0.0,
@@ -363,6 +350,56 @@
      "description": "Gain strength in dB",
      "valeurs": [],
      "libelle": "Sortie"
+    }
+   ]
+  },
+  "Cabinet": {
+   "nom": "Baffle (IR)",
+   "court": "Baffle",
+   "categorie": "nam",
+   "icone": "▦",
+   "description": "Cabinet impulse response playback",
+   "params": [
+    {
+     "nom": "Impulse",
+     "type": "fichier",
+     "min": -1.0,
+     "max": 0,
+     "defaut": -1.0,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Selected impulse response",
+     "valeurs": [
+      "Baffle-4x12-base"
+     ],
+     "libelle": "IR"
+    },
+    {
+     "nom": "Dry",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 0.0,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Strength of original signal",
+     "valeurs": [],
+     "libelle": "Direct"
+    },
+    {
+     "nom": "Wet",
+     "type": "bouton",
+     "min": 0.0,
+     "max": 1.0,
+     "defaut": 1.0,
+     "format": "{0:0.00}",
+     "avance": false,
+     "sortie": false,
+     "description": "Strength of impulse response output",
+     "valeurs": [],
+     "libelle": "Baffle"
     }
    ]
   },
@@ -976,6 +1013,7 @@
   "Screamer",
   "Fuzz",
   "NAM",
+  "Cabinet",
   "Wah",
   "AutoWah",
   "EQ-7",
@@ -1000,7 +1038,7 @@
   ],
   [
    "nam",
-   "Ampli / pédale NAM"
+   "Ampli, pédale et baffle"
   ],
   [
    "filtre",

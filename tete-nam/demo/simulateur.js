@@ -120,12 +120,18 @@
     let d = 4;
     for (const b of s.chaine) {
       if (!b.actif) continue;
-      d += b.type === "NAM" ? 8 + 22 * (+b.valeurs.Quality || 0) : 0.5;
+      d += b.type === "NAM" ? 30 : b.type === "Cabinet" ? 1 : 0.5;
     }
     d *= 128 / s.buffer > 1 ? 1.08 : 1;
     return Math.max(1, d + (Math.random() - 0.5) * 3);
   }
   setInterval(() => { histo.push(dsp()); if (histo.length > 120) histo.shift(); }, 1000);
+  // Crêtes simulées : pas d'écrêtage, sauf volume général poussé au-delà de +6 dB
+  function niveauxES() {
+    const a = (Math.random() - 0.5) * 4;
+    return {entree: -14 + a, sortie: -9 + a + (+s.volume || 0), ecrete_entree: false,
+            ecrete_sortie: (+s.volume || 0) > 6, frequence: 48000, frequence_ok: true};
+  }
 
   const NOTES = ["Do", "Do#", "Ré", "Ré#", "Mi", "Fa", "Fa#", "Sol", "Sol#", "La", "La#", "Si"];
   function tuner() {
@@ -141,7 +147,7 @@
   const lectures = {
     "/api/etat": () => ({rev, cfg: CFG.cfg, moteur: true, dsp: histo.length ? histo[histo.length - 1] : dsp(), xruns: 0,
       temp: 52 + Math.random() * 2, throttled: "0x0", preset: s.preset, numero: numero(), modifie: s.modifie,
-      chargement: false, accordeur: tuner(), midi: etatMidi()}),
+      chargement: false, accordeur: tuner(), midi: etatMidi(), niveaux: niveauxES()}),
     "/api/tout": () => ({rev, preset: s.preset, numero: numero(), modifie: s.modifie, presets: noms(), chaine: copie(s.chaine),
       reglages: {CARD: "M4", RATE: 48000, PERIOD: s.buffer, NPERIODS: 2, INPUT_DBU: s.cal, VEILLE: s.veille ?? 7, VEILLE_STYLE: s.veilleStyle || "onde"},
       volume: s.volume, buffers: [64, 128, 256, 512],
@@ -150,7 +156,7 @@
     "/api/niveau": () => niveauSimule(),
     "/api/wifi": () => wifiSimule(),
     "/api/systeme": () => ({histo: histo.slice(), temp: 53, throttled: "0x0", xruns: 0, dsp: histo[histo.length - 1],
-      version: "démo", service: "active"}),
+      version: "démo", service: "active", niveaux: niveauxES()}),
   };
 
   function charger(nom) {
@@ -461,6 +467,10 @@
   ecritures["/api/ajouter"] = d => {
     const r = ajoutAvant(d);
     if (d.modele) { s.chaine.find(b => b.id === r.id).valeurs.Model = String(d.modele); change(); }
+    if (d.type === "Cabinet") {
+      const ir = ((CFG.types.Cabinet.params || []).find(q => q.nom === "Impulse") || {}).valeurs || [];
+      if (ir.length) { s.chaine.find(b => b.id === r.id).valeurs.Impulse = ir[0]; change(); }
+    }
     return r;
   };
 
