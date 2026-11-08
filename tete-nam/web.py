@@ -525,10 +525,7 @@ def api_ajouter(d):
 def api_retirer(d):
     with verrou:
         i = verifier_bloc(d)
-        ids = [x for x in chaine() if x != i]
-        mettre_chaine(ids)
-        etat["prog"]["chaines"][CHAINE] = ids
-        oublier_bloc(i)
+        retirer_bloc(i)
         if essai and essai["bloc"] == i:
             nettoyer_essai(restaurer=False)
         modifie()
@@ -1216,14 +1213,26 @@ def sauver_essai():
         ecrire_fichier(FICHIER_ESSAI, json.dumps(essai))
 
 
-def bloc_pour_essai(voulu):
+def bloc_pour_essai(voulu, nouveau=False, apres=None):
+    """Le bloc NAM où mettre l'essai, et s'il a été créé pour lui (il sera
+    alors retiré si on annule)."""
     ids = chaine()
-    if voulu in ids and type_de(voulu) == "NAM":
-        return voulu
-    for i in ids:
-        if type_de(i) == "NAM":
-            return i
-    return api_ajouter({"type": "NAM", "apres": ids[-1] if ids else None})["id"]
+    if not nouveau:
+        if voulu in ids and type_de(voulu) == "NAM":
+            return voulu, False
+        for i in ids:
+            if type_de(i) == "NAM":
+                return i, False
+    if apres not in ids:
+        apres = ids[-1] if ids else None
+    return api_ajouter({"type": "NAM", "apres": apres})["id"], True
+
+
+def retirer_bloc(i):
+    ids = [x for x in chaine() if x != i]
+    mettre_chaine(ids)
+    etat["prog"]["chaines"][CHAINE] = ids
+    oublier_bloc(i)
 
 
 def essayer(d):
@@ -1236,21 +1245,37 @@ def essayer(d):
     contenu = None if deja else T3K.telecharger(m["url"])    # hors du verrou : peut être long
     if contenu is not None:
         verifier_nam(contenu)
+    nouveau = bool(d.get("nouveau"))              # depuis « + » : l'essai va dans un nouveau bloc
     with verrou:
+        cree = False
         if essai:
-            nettoyer_essai(restaurer=True)
-        bloc = bloc_pour_essai(str(d.get("bloc") or ""))
-        ancien = etat["prog"]["valeurs"].get(bloc, {}).get("Model", "")
+            # Un autre essai pendant l'ajout d'un NAM : on garde le bloc créé pour le premier
+            if nouveau and essai.get("cree") and essai["bloc"] in chaine():
+                bloc, cree = essai["bloc"], True
+                nettoyer_essai(restaurer=False)
+                if deja:
+                    api_param({"id": bloc, "nom": "Model", "valeur": deja})
+                    return {"ok": True, "bloc": bloc, "deja": deja}
+                nouveau = False
+            else:
+                nettoyer_essai(restaurer=True)
         if deja:                                  # déjà sur la tête : on le met, c'est tout
-            api_param({"id": bloc, "nom": "Model", "valeur": deja})
+            if nouveau:
+                bloc = api_ajouter({"type": "NAM", "apres": d.get("apres"), "modele": deja})["id"]
+            else:
+                bloc, _ = bloc_pour_essai(str(d.get("bloc") or ""))
+                api_param({"id": bloc, "nom": "Model", "valeur": deja})
             return {"ok": True, "bloc": bloc, "deja": deja}
+        if not cree:
+            bloc, cree = bloc_pour_essai(str(d.get("bloc") or ""), nouveau, d.get("apres"))
+        ancien = etat["prog"]["valeurs"].get(bloc, {}).get("Model", "")
         fichier = f"{PREFIXE_ESSAI}{m['id']}"
         ecrire_modele(fichier, contenu)
         moteur.ok("RescanFiles")
         charger_config()
         moteur.ok(f'SetParam {bloc} Model "{fichier}"')
         etat["prog"]["valeurs"].setdefault(bloc, {})["Model"] = fichier
-        essai = {"bloc": bloc, "ancien": ancien, "fichier": fichier, "tone_id": tone["id"],
+        essai = {"bloc": bloc, "ancien": ancien, "cree": cree, "fichier": fichier, "tone_id": tone["id"],
                  "model_id": m["id"], "nom": m["nom"], "tone": tone["titre"],
                  "fiche": tone, "modele": {k: m[k] for k in ("id", "nom", "taille")}}
         sauver_essai()
@@ -1269,7 +1294,10 @@ def nettoyer_essai(restaurer):
         essai = None
         bloc = e["bloc"]
         dedans = bloc in chaine() and etat["prog"]["valeurs"].get(bloc, {}).get("Model") == e["fichier"]
-        if restaurer and dedans:
+        if restaurer and dedans and e.get("cree"):
+            retirer_bloc(bloc)                    # bloc créé pour l'essai : on l'enlève
+            modifie()
+        elif restaurer and dedans:
             ancien = e["ancien"] if e["ancien"] in etat["modeles"] and not e["ancien"].startswith(PREFIXE_ESSAI) \
                 else next((x for x in etat["modeles"] if not x.startswith(PREFIXE_ESSAI)), "")
             if ancien:
@@ -1322,8 +1350,14 @@ def essai_au_demarrage():
         return
     try:
         with open(tetenam.EN_COURS) as f:
-            texte = f.read()
-        ecrire_fichier(tetenam.EN_COURS, texte.replace(f'"{e["fichier"]}"', f'"{e.get("ancien", "")}"'))
+            lignes = f.read().splitlines()
+        if e.get("cree"):                         # bloc créé pour l'essai : on l'enlève
+            b = e.get("bloc", "")
+            lignes = [" ".join(x for x in l.split() if x != b) if l.startswith("SetChain ") else l
+                      for l in lignes if not l.startswith(f"SetParam {b} ")]
+        else:
+            lignes = [l.replace(f'"{e["fichier"]}"', f'"{e.get("ancien", "")}"') for l in lignes]
+        ecrire_fichier(tetenam.EN_COURS, "\n".join(lignes) + "\n")
     except OSError:
         pass
     for chemin in (os.path.join(DOSSIER_MODELES, e.get("fichier", "x") + ".nam"), FICHIER_ESSAI):
