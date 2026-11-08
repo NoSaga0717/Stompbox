@@ -29,6 +29,16 @@ API (tout en JSON) :
   POST /api/wifi      {action: chercher|connecter|oublier|hotspot, ssid, mdp}
   POST /api/envoyer   fichier .nam brut, nom dans l'en-tête X-Nom-Fichier
   POST /api/midi      {action: apprendre|annuler|oublier|mode|canal, ...}
+  GET  /api/tone3000  connexion TONE3000, téléchargement et essai en cours
+  POST /api/tone3000  {action: connecter|annuler|deconnecter|liste|tone|telecharger|
+                      essayer|garder|abandonner|catalogue|cle|recherche, ...}
+  GET  /api/bibliotheque  modèles de la tête avec étiquettes, favoris, fiche TONE3000
+  POST /api/bibliotheque  {action: etiqueter|favori|renommer|supprimer|utilisation|
+                      nouvelle_etiquette|retirer_etiquette, ...}
+  GET  /api/cartes    cartes son branchées et carte utilisée
+  POST /api/carte     {id}   change de carte son (relance l'audio)
+  GET  /tone3000/catalogue   (téléphone) ouvre le catalogue TONE3000 ; le tone
+                      choisi revient sur /tone3000/retour puis s'ouvre sur la tête
 
 MIDI (midi.py) : Program Change n -> n-ième preset de la liste (0 = le 1er) ;
 Control Change -> ce qu'on lui a fait « apprendre » (bloc allumé/éteint,
@@ -39,10 +49,13 @@ Uniquement la bibliothèque standard de Python : rien à installer.
 """
 import copy
 import hashlib
+import html
+import ipaddress
 import json
 import math
 import os
 import re
+import socket
 import subprocess
 import sys
 import threading
@@ -53,9 +66,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ICI = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, ICI)
+import bibliotheque  # noqa: E402
 import midi  # noqa: E402
 import tetenam  # noqa: E402
-from moteur import CHAINE, Moteur, MoteurAbsent  # noqa: E402
+import tone3000  # noqa: E402
+from bibliotheque import PREFIXE_ESSAI  # noqa: E402
+from moteur import CHAINE, Moteur, MoteurAbsent, analyser_programme  # noqa: E402
 
 PORT = int(os.environ.get("TETE_NAM_PORT", "8080"))
 DONNEES = tetenam.DONNEES
@@ -309,7 +325,8 @@ def api_etat():
     return {"rev": etat["rev"], "cfg": etat["cfg"], "moteur": etat["moteur"], "dsp": etat["dsp"],
             "xruns": etat["xruns"], "temp": temperature(), "throttled": etat["throttled"],
             "preset": etat["preset"], "numero": numero_preset(), "modifie": etat["modifie"],
-            "chargement": etat["chargement"], "accordeur": accordeur(), "midi": etat_midi()}
+            "chargement": etat["chargement"], "accordeur": accordeur(), "midi": etat_midi(),
+            "bib": BIB.rev, "t3k": T3K.rev + t3k_vivant["rev"]}
 
 
 # Niveau du son pour la veille de l'écran : un fil interroge le moteur environ
@@ -426,6 +443,9 @@ def api_param(d):
                 if v not in prm["valeurs"]:
                     raise ValueError(f"Valeur inconnue : {v}")
             moteur.ok(f'SetParam {i} {nom} "{v}"')
+            if essai and essai["bloc"] == i and nom == "Model" and v != essai["fichier"]:
+                etat["prog"]["valeurs"].setdefault(i, {})[nom] = v
+                nettoyer_essai(restaurer=False)      # un autre modèle choisi : essai abandonné
         else:
             v = min(prm["max"], max(prm["min"], float(d.get("valeur"))))
             if prm["type"] in ("entier", "interrupteur"):
@@ -481,13 +501,19 @@ def api_ajouter(d):
         ids.insert(pos, nouveau)
         mettre_chaine(ids)
         etat["vus"].add(nouveau)
-        if t == "NAM" and etat["modeles"]:
+        voulu = str(d.get("modele") or "")
+        if t == "NAM" and voulu and voulu not in etat["modeles"]:
+            moteur.ok("RescanFiles")
+            charger_config()
+        if t == "NAM" and voulu in etat["modeles"]:
+            moteur.commande(f'SetParam {nouveau} Model "{texte_sur(voulu)}"')
+        elif t == "NAM" and etat["modeles"]:
             # Un NAM sans modèle laisse passer le son : on prend le modèle du
             # dernier NAM de la chaîne, ou le premier de la liste
-            modele = etat["modeles"][0]
+            modele = next((m for m in etat["modeles"] if not m.startswith(PREFIXE_ESSAI)), etat["modeles"][0])
             for autre in reversed(ids):
                 v = etat["prog"]["valeurs"].get(autre, {}).get("Model")
-                if type_de(autre) == "NAM" and v in etat["modeles"]:
+                if type_de(autre) == "NAM" and v in etat["modeles"] and not v.startswith(PREFIXE_ESSAI):
                     modele = v
                     break
             moteur.commande(f'SetParam {nouveau} Model "{modele}"')
@@ -503,6 +529,8 @@ def api_retirer(d):
         mettre_chaine(ids)
         etat["prog"]["chaines"][CHAINE] = ids
         oublier_bloc(i)
+        if essai and essai["bloc"] == i:
+            nettoyer_essai(restaurer=False)
         modifie()
         return {"ok": True}
 
@@ -530,6 +558,8 @@ def charger_preset(nom):
     moteur.ok(f'LoadPreset "{nom}"')
     attendre_chargement()
     rafraichir()
+    if essai:
+        nettoyer_essai(restaurer=False)
     etat["preset"], etat["modifie"] = nom, False
     M["courant"] = copy.deepcopy(M["presets"].get(nom, {}))
     sauver_en_cours()
@@ -553,6 +583,8 @@ def api_preset(d):
             charger_preset(presets[k % len(presets)])
         elif action == "sauver":
             nom = nom_preset(d.get("nom") or etat["preset"])
+            if essai:
+                garder_essai()          # un preset ne doit pas pointer vers un essai
             moteur.ok(f'SavePreset "{nom}"')
             etat["preset"], etat["modifie"] = nom, False
             M["presets"][nom] = copy.deepcopy(M["courant"])
@@ -573,6 +605,8 @@ def api_preset(d):
         elif action == "nouveau":
             mettre_chaine([])
             etat["prog"]["chaines"][CHAINE] = []
+            if essai:
+                nettoyer_essai(restaurer=False)
             etat["preset"] = ""
             M["courant"] = {}
             sauver_midi()
@@ -641,17 +675,21 @@ def api_buffer(d):
         r = tetenam.reglages()
         r["PERIOD"], r["NPERIODS"] = taille, tetenam.NPERIODS
         tetenam.ecrire_conf(r)
-        sauver_en_cours()
         # JACK ne change pas de buffer à chaud : on relance le service audio.
-        # Autorisé sans mot de passe par /etc/sudoers.d/tete-nam (install.sh).
-        p = subprocess.run(["sudo", "-n", "systemctl", "restart", "--no-block", "tete-nam"],
-                           capture_output=True, text=True, timeout=10)
-        if p.returncode:
-            raise ValueError("Buffer enregistré, mais redémarrage refusé : "
-                             "sudo systemctl restart tete-nam")
-        redemarrage["t"] = time.time()
-        etat["rev"] += 1
+        relancer_audio("Buffer enregistré")
         return {"ok": True}
+
+
+def relancer_audio(quoi):
+    """Relance le service audio (JACK + moteur) après un changement de la conf.
+    Autorisé sans mot de passe par /etc/sudoers.d/tete-nam (install.sh)."""
+    sauver_en_cours()
+    p = subprocess.run(["sudo", "-n", "systemctl", "restart", "--no-block", "tete-nam"],
+                       capture_output=True, text=True, timeout=10)
+    if p.returncode:
+        raise ValueError(f"{quoi}, mais redémarrage refusé : sudo systemctl restart tete-nam")
+    redemarrage["t"] = time.time()
+    etat["rev"] += 1
 
 
 TAILLE_MAX = 50 * 1024 * 1024   # 50 Mo, largement plus qu'un .nam
@@ -675,13 +713,19 @@ def api_envoyer(nom, contenu):
         f.write(contenu)
     existait = os.path.exists(final)
     os.replace(temp, final)
+    BIB.ajouter_fichier(tetenam.nom_modele(final))
+    relire_modeles()
+    return {"ok": True, "nom": nom, "remplace": existait}
+
+
+def relire_modeles():
+    """Le moteur relit le dossier des modèles (après un ajout ou une suppression)."""
     try:
         with verrou:
             moteur.ok("RescanFiles")
             charger_config()
     except (MoteurAbsent, ValueError):
         pass
-    return {"ok": True, "nom": nom, "remplace": existait}
 
 
 # --- MIDI -------------------------------------------------------------------------
@@ -1051,14 +1095,501 @@ def api_wifi(d):
     return {"ok": True}
 
 
+# --- TONE3000 -----------------------------------------------------------------------
+# Connexion par code (QR code sur l'écran), listes et recherche, fiche d'un
+# tone, téléchargement des modèles choisis (en tâche de fond) et essai d'un
+# modèle avant de le garder. Le client est dans tone3000.py.
+
+T3K = tone3000.Client(os.path.join(DONNEES, "tone3000"), cle=lambda: tetenam.reglages()["T3K_CLE"],
+                      version=VERSION, journal=journal)
+BIB = bibliotheque.Bibliotheque(os.path.join(DONNEES, "bibliotheque.json"), DOSSIER_MODELES)
+FICHIER_ESSAI = os.path.join(DONNEES, "tone3000", "essai.json")
+t3k_vivant = {"rev": 0, "tache": None, "choix": None, "catalogues": {}}
+tones_vus = {}                 # tone_id -> (heure, fiche, modèles) : 10 min
+essai = None                   # {"bloc", "ancien", "fichier", "tone_id", "model_id", "nom", "tone"}
+verrou_tache = threading.Lock()
+
+
+def t3k_change():
+    t3k_vivant["rev"] += 1
+
+
+def fiche_tone(tone_id, frais=False):
+    tone_id = int(tone_id)
+    v = tones_vus.get(tone_id)
+    if v and not frais and time.time() - v[0] < 600:
+        return v[1], v[2]
+    t, m = T3K.tone(tone_id)
+    tones_vus[tone_id] = (time.time(), t, m)
+    if len(tones_vus) > 50:
+        del tones_vus[min(tones_vus, key=lambda k: tones_vus[k][0])]
+    return t, m
+
+
+def verifier_nam(contenu):
+    try:
+        d = json.loads(contenu)
+        assert isinstance(d, dict) and "architecture" in d
+    except Exception:
+        raise ValueError("Le fichier reçu n'est pas un modèle NAM valide")
+
+
+def ecrire_modele(nom, contenu):
+    os.makedirs(DOSSIER_MODELES, exist_ok=True)
+    final = os.path.join(DOSSIER_MODELES, nom + ".nam")
+    tmp = final + ".envoi"
+    with open(tmp, "wb") as f:
+        f.write(contenu)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, final)
+
+
+def telecharger_un(tone, m, etiquettes):
+    """Télécharge un modèle s'il n'est pas déjà là. Renvoie son nom de fichier."""
+    deja = BIB.fichier_du_modele(m["id"])
+    if deja:
+        if etiquettes:
+            e = BIB.liste([deja])["modeles"][0]["etiquettes"]
+            BIB.etiqueter(deja, e + [x for x in etiquettes if x not in e])
+        return deja, False
+    contenu = T3K.telecharger(m["url"])
+    verifier_nam(contenu)
+    nom = BIB.nouveau_nom(tone["titre"], m["nom"])
+    ecrire_modele(nom, contenu)
+    BIB.ajouter_t3k(nom, tone, m, etiquettes)
+    return nom, True
+
+
+def tache_telecharger(tache, tone, choisis, etiquettes):
+    for m in choisis:
+        if tache.get("annule"):
+            break
+        tache["en_cours"] = m["nom"]
+        t3k_change()
+        try:
+            nom, nouveau = telecharger_un(tone, m, etiquettes)
+            tache["fichiers"].append(nom)
+            if not nouveau:
+                tache["deja"] += 1
+        except (tone3000.ErreurT3K, ValueError, OSError) as e:
+            tache["erreurs"].append(f"{m['nom']} : {e}")
+        tache["fait"] += 1
+        t3k_change()
+    tache.update(en_cours="", fini=True)
+    relire_modeles()
+    journal(f"TONE3000 : {tache['fait'] - len(tache['erreurs'])} modèle(s) de « {tone['titre']} » sur la tête")
+    t3k_change()
+
+
+def lancer_telechargement(d):
+    tone, modeles = fiche_tone(d.get("tone_id"))
+    ids = {int(x) for x in d.get("modeles", [])}
+    choisis = [m for m in modeles if m["id"] in ids]
+    if not choisis:
+        raise ValueError("Choisissez au moins un modèle")
+    etiquettes = [bibliotheque.nom_etiquette(x) for x in d.get("etiquettes", [])][:10]
+    with verrou_tache:
+        t = t3k_vivant["tache"]
+        if t and not t["fini"]:
+            raise ValueError("Un téléchargement est déjà en cours")
+        tache = {"tone_id": tone["id"], "titre": tone["titre"], "total": len(choisis), "fait": 0,
+                 "deja": 0, "en_cours": "", "erreurs": [], "fichiers": [], "fini": False, "t": time.time()}
+        t3k_vivant["tache"] = tache
+    threading.Thread(target=tache_telecharger, args=(tache, tone, choisis, etiquettes), daemon=True).start()
+    t3k_change()
+    return {"ok": True}
+
+
+# --- Essai d'un modèle avant de le garder -------------------------------------------
+# Le modèle est téléchargé sous le nom _essai-<id> et mis dans un bloc NAM à
+# la place de l'ancien. « Garder » le renomme et le range dans la
+# bibliothèque ; « Abandonner » remet l'ancien modèle et efface le fichier.
+
+def sauver_essai():
+    if essai is None:
+        try:
+            os.remove(FICHIER_ESSAI)
+        except OSError:
+            pass
+    else:
+        ecrire_fichier(FICHIER_ESSAI, json.dumps(essai))
+
+
+def bloc_pour_essai(voulu):
+    ids = chaine()
+    if voulu in ids and type_de(voulu) == "NAM":
+        return voulu
+    for i in ids:
+        if type_de(i) == "NAM":
+            return i
+    return api_ajouter({"type": "NAM", "apres": ids[-1] if ids else None})["id"]
+
+
+def essayer(d):
+    global essai
+    tone, modeles = fiche_tone(d.get("tone_id"))
+    m = next((x for x in modeles if x["id"] == int(d.get("model_id", -1))), None)
+    if m is None:
+        raise ValueError("Modèle introuvable dans ce tone")
+    deja = BIB.fichier_du_modele(m["id"])
+    contenu = None if deja else T3K.telecharger(m["url"])    # hors du verrou : peut être long
+    if contenu is not None:
+        verifier_nam(contenu)
+    with verrou:
+        if essai:
+            nettoyer_essai(restaurer=True)
+        bloc = bloc_pour_essai(str(d.get("bloc") or ""))
+        ancien = etat["prog"]["valeurs"].get(bloc, {}).get("Model", "")
+        if deja:                                  # déjà sur la tête : on le met, c'est tout
+            api_param({"id": bloc, "nom": "Model", "valeur": deja})
+            return {"ok": True, "bloc": bloc, "deja": deja}
+        fichier = f"{PREFIXE_ESSAI}{m['id']}"
+        ecrire_modele(fichier, contenu)
+        moteur.ok("RescanFiles")
+        charger_config()
+        moteur.ok(f'SetParam {bloc} Model "{fichier}"')
+        etat["prog"]["valeurs"].setdefault(bloc, {})["Model"] = fichier
+        essai = {"bloc": bloc, "ancien": ancien, "fichier": fichier, "tone_id": tone["id"],
+                 "model_id": m["id"], "nom": m["nom"], "tone": tone["titre"],
+                 "fiche": tone, "modele": {k: m[k] for k in ("id", "nom", "taille")}}
+        sauver_essai()
+        modifie()
+        t3k_change()
+        return {"ok": True, "bloc": bloc}
+
+
+def nettoyer_essai(restaurer):
+    """Fin d'un essai sans le garder. restaurer : remet l'ancien modèle dans le bloc."""
+    global essai
+    with verrou:
+        e = essai
+        if not e:
+            return
+        essai = None
+        bloc = e["bloc"]
+        dedans = bloc in chaine() and etat["prog"]["valeurs"].get(bloc, {}).get("Model") == e["fichier"]
+        if restaurer and dedans:
+            ancien = e["ancien"] if e["ancien"] in etat["modeles"] and not e["ancien"].startswith(PREFIXE_ESSAI) \
+                else next((x for x in etat["modeles"] if not x.startswith(PREFIXE_ESSAI)), "")
+            if ancien:
+                moteur.ok(f'SetParam {bloc} Model "{ancien}"')
+                etat["prog"]["valeurs"][bloc]["Model"] = ancien
+                modifie()
+        try:
+            os.remove(os.path.join(DOSSIER_MODELES, e["fichier"] + ".nam"))
+        except OSError:
+            pass
+        sauver_essai()
+        relire_modeles()
+        t3k_change()
+
+
+def garder_essai(etiquettes=()):
+    global essai
+    with verrou:
+        e = essai
+        if not e:
+            raise ValueError("Aucun essai en cours")
+        tone, m = e["fiche"], e["modele"]         # gardés à l'essai : pas besoin d'Internet
+        final = BIB.fichier_du_modele(e["model_id"])
+        source = os.path.join(DOSSIER_MODELES, e["fichier"] + ".nam")
+        if final:
+            os.remove(source)
+        else:
+            final = BIB.nouveau_nom(tone["titre"], m["nom"])
+            os.replace(source, os.path.join(DOSSIER_MODELES, final + ".nam"))
+            BIB.ajouter_t3k(final, tone, m, etiquettes)
+        essai = None
+        sauver_essai()
+        moteur.ok("RescanFiles")
+        charger_config()
+        for i in chaine():                         # le bloc d'essai prend le vrai nom
+            if etat["prog"]["valeurs"].get(i, {}).get("Model") == e["fichier"]:
+                moteur.ok(f'SetParam {i} Model "{final}"')
+                etat["prog"]["valeurs"][i]["Model"] = final
+        modifie()
+        t3k_change()
+        return final
+
+
+def essai_au_demarrage():
+    """La tête s'est arrêtée pendant un essai : on remet l'ancien modèle."""
+    try:
+        with open(FICHIER_ESSAI) as f:
+            e = json.load(f)
+    except (OSError, ValueError):
+        return
+    try:
+        with open(tetenam.EN_COURS) as f:
+            texte = f.read()
+        ecrire_fichier(tetenam.EN_COURS, texte.replace(f'"{e["fichier"]}"', f'"{e.get("ancien", "")}"'))
+    except OSError:
+        pass
+    for chemin in (os.path.join(DOSSIER_MODELES, e.get("fichier", "x") + ".nam"), FICHIER_ESSAI):
+        try:
+            os.remove(chemin)
+        except OSError:
+            pass
+    journal("Essai TONE3000 interrompu : ancien modèle remis")
+
+
+# --- Catalogue complet sur le téléphone (page « Select » de TONE3000) ------------
+
+def ip_locale(hote=""):
+    """Adresse de la tête sur le réseau local (le téléphone doit la joindre)."""
+    h = hote.rsplit(":", 1)[0].strip("[]") if hote else ""
+    try:
+        if ipaddress.ip_address(h).is_private:
+            return h
+    except ValueError:
+        pass
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))        # aucun paquet envoyé
+            ip = s.getsockname()[0]
+        if ipaddress.ip_address(ip).is_private:
+            return ip
+    except OSError:
+        pass
+    return wifi_etat().get("ip", "")
+
+
+def page_catalogue(hote):
+    ip = ip_locale(hote)
+    if not ip:
+        raise ValueError("La tête n'a pas d'adresse sur le réseau local")
+    retour = f"http://{ip}:{PORT}/tone3000/retour"
+    url, cle, verif = T3K.adresse_catalogue(retour)
+    cat = t3k_vivant["catalogues"]
+    for k in [k for k, v in cat.items() if time.time() - v["t"] > 1800]:
+        del cat[k]
+    cat[cle] = {"verif": verif, "retour": retour, "t": time.time()}
+    return url
+
+
+def retour_catalogue(q):
+    """TONE3000 renvoie ici (via le téléphone) le tone choisi."""
+    g = lambda k: (q.get(k) or [""])[0]
+    c = t3k_vivant["catalogues"].pop(g("state"), None)
+    if c is None:
+        return "Demande inconnue ou trop ancienne : recommencez depuis la tête."
+    if g("error"):
+        return "TONE3000 : " + (g("error_description") or g("error"))
+    if g("code"):
+        T3K.connexion_par_code(g("code"), c["verif"], c["retour"])
+    if g("canceled") == "true" or not g("tone_id"):
+        return "Aucun tone choisi."
+    t3k_vivant["choix"] = {"tone_id": int(g("tone_id")), "n": (t3k_vivant["choix"] or {}).get("n", 0) + 1}
+    t3k_change()
+    return "C'est envoyé : le tone s'ouvre sur l'écran de la tête."
+
+
+def api_tone3000_lire():
+    r = tetenam.reglages()
+    tache = t3k_vivant["tache"]
+    if tache and tache["fini"] and time.time() - tache["t"] > 600:
+        tache = t3k_vivant["tache"] = None
+    return {"ok": True, "cle": bool(r["T3K_CLE"]), "recherche": r["T3K_RECHERCHE"] == "oui",
+            **T3K.etat(), "tache": tache and {k: v for k, v in tache.items() if k != "t"},
+            "essai": essai and {k: v for k, v in essai.items() if k not in ("fiche", "modele")},
+            "choix": t3k_vivant["choix"], "rev": T3K.rev + t3k_vivant["rev"]}
+
+
+def api_tone3000(d):
+    a = d.get("action")
+    if a == "cle":
+        v = str(d.get("valeur", "")).strip()
+        if v.startswith("t3k_cs_"):
+            raise ValueError("C'est la clé SECRÈTE : il faut la clé publique t3k_pub_…")
+        if v and not re.fullmatch(r"t3k_pub_[\w\-]{4,200}", v):
+            raise ValueError("La clé commence par t3k_pub_")
+        with verrou:
+            changer_conf("T3K_CLE", v)
+        return {"ok": True}
+    if a == "recherche":
+        with verrou:
+            changer_conf("T3K_RECHERCHE", "oui" if d.get("actif") else "non")
+        etat["rev"] += 1
+        return {"ok": True}
+    if a == "connecter":
+        T3K.demarrer_connexion()
+    elif a == "annuler":
+        T3K.annuler_connexion()
+    elif a == "deconnecter":
+        T3K.deconnecter()
+    elif a == "liste":
+        quoi = str(d.get("quoi", ""))
+        if quoi == "search" and tetenam.reglages()["T3K_RECHERCHE"] != "oui":
+            raise ValueError("Recherche texte coupée (page Système)")
+        r = T3K.liste(quoi, str(d.get("texte", "")), str(d.get("gear", "")), d.get("page", 1),
+                      str(d.get("tri", "")))
+        chez_moi = {}
+        for m in BIB.d["modeles"].values():
+            t = (m.get("t3k") or {}).get("tone_id")
+            if t is not None:
+                chez_moi[t] = chez_moi.get(t, 0) + 1
+        for t in r["tones"]:
+            t["chez_moi"] = chez_moi.get(t["id"], 0)
+        return {"ok": True, **r}
+    elif a == "tone":
+        t, modeles = fiche_tone(d.get("id"), frais=bool(d.get("frais")))
+        return {"ok": True, "tone": t, "modeles": [
+            {k: m[k] for k in ("id", "nom", "taille")} | {"fichier": BIB.fichier_du_modele(m["id"])}
+            for m in modeles]}
+    elif a == "telecharger":
+        return lancer_telechargement(d)
+    elif a == "stop":
+        if t3k_vivant["tache"]:
+            t3k_vivant["tache"]["annule"] = True
+    elif a == "essayer":
+        return essayer(d)
+    elif a == "garder":
+        return {"ok": True, "fichier": garder_essai(d.get("etiquettes", []))}
+    elif a == "abandonner":
+        nettoyer_essai(restaurer=True)
+    elif a == "catalogue":
+        # Adresse courte, à mettre dans un QR code : elle renvoie vers TONE3000
+        ip = ip_locale(str(d.get("hote", "")))
+        if not ip:
+            raise ValueError("La tête n'a pas d'adresse sur le réseau local (Wi-Fi ?)")
+        return {"ok": True, "url": f"http://{ip}:{PORT}/tone3000/catalogue"}
+    elif a == "vu":
+        t3k_vivant["choix"] = None
+    else:
+        raise ValueError("Action inconnue")
+    t3k_change()
+    return {"ok": True}
+
+
+# --- Bibliothèque des modèles ----------------------------------------------------
+
+def api_bibliotheque_lire():
+    return {"ok": True, **BIB.liste(etat["modeles"]),
+            "essai": essai and {k: essai[k] for k in ("bloc", "fichier", "nom", "tone")}}
+
+
+def presets_avec(fichier):
+    r = []
+    for nom in liste_presets():
+        try:
+            with open(os.path.join(PRESETS, nom), errors="replace") as f:
+                p = analyser_programme(f.read().splitlines())
+        except OSError:
+            continue
+        if any(type_de(b) == "NAM" and v.get("Model") == fichier for b, v in p["valeurs"].items()):
+            r.append(nom)
+    return r
+
+
+def api_bibliotheque(d):
+    a = d.get("action")
+    if a in ("nouvelle_etiquette", "retirer_etiquette"):
+        (BIB.nouvelle_etiquette if a == "nouvelle_etiquette" else BIB.retirer_etiquette)(d.get("nom", ""))
+        return {"ok": True}
+    f = texte_sur(d.get("fichier", ""))
+    if f not in etat["modeles"] or f.startswith(PREFIXE_ESSAI):
+        raise ValueError(f"Modèle inconnu : {f}")
+    if a == "etiqueter":
+        BIB.etiqueter(f, [str(x) for x in d.get("etiquettes", [])][:20])
+    elif a == "favori":
+        BIB.favori(f, d.get("favori"))
+    elif a == "renommer":
+        BIB.renommer(f, d.get("nom", ""))
+    elif a == "utilisation":
+        dans = [i for i in chaine() if etat["prog"]["valeurs"].get(i, {}).get("Model") == f]
+        return {"ok": True, "presets": presets_avec(f), "chaine": dans}
+    elif a == "supprimer":
+        with verrou:
+            if any(etat["prog"]["valeurs"].get(i, {}).get("Model") == f for i in chaine()):
+                raise ValueError("Ce modèle est dans la chaîne en cours : changez-le d'abord")
+            os.remove(os.path.join(DOSSIER_MODELES, f + ".nam"))
+            BIB.oublier(f)
+            relire_modeles()
+    else:
+        raise ValueError("Action inconnue")
+    return {"ok": True}
+
+
+# --- Carte son ---------------------------------------------------------------------
+# Chaque carte garde ses propres réglages (entrée, sorties, calibration) dans
+# ~/tete-nam/cartes.json : changer de carte remet ceux de la nouvelle.
+FICHIER_CARTES = os.path.join(DONNEES, "cartes.json")
+PROFILS_CONNUS = {"M4": {"INPUT_DBU": 16.0}}
+CARTES_CACHEES = ("vc4hdmi", "Headphones")
+CARTES_ALSA = os.environ.get("TETE_NAM_ALSA_CARTES", "/proc/asound/cards")
+
+
+def cartes_vues():
+    """/proc/asound/cards : « 2 [M4 ]: USB-Audio - M4 » puis « MOTU M4 at usb-... »."""
+    r = []
+    try:
+        with open(CARTES_ALSA) as f:
+            lignes = f.read().splitlines()
+    except OSError:
+        return r
+    for k, l in enumerate(lignes):
+        m = re.match(r"\s*\d+\s+\[(\S+)\s*\]:\s*(.*)", l)
+        if m and not m.group(1).startswith(CARTES_CACHEES):
+            nom = m.group(2).split(" - ", 1)[-1].strip()
+            if k + 1 < len(lignes) and not re.match(r"\s*\d+\s+\[", lignes[k + 1]):
+                nom = lignes[k + 1].strip().split(" at ", 1)[0] or nom
+            r.append({"id": m.group(1), "nom": nom})
+    return r
+
+
+def lire_profils():
+    try:
+        with open(FICHIER_CARTES) as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def api_cartes_lire():
+    r = tetenam.reglages()
+    vues = cartes_vues()
+    if r["CARD"] not in [c["id"] for c in vues] and r["CARD"] != "aucune":
+        vues.append({"id": r["CARD"], "nom": r["CARD"], "absente": True})
+    vues.append({"id": "aucune", "nom": "Aucune (essai sans son)"})
+    return {"ok": True, "courante": r["CARD"], "cartes": vues}
+
+
+def api_carte(d):
+    with verrou:
+        cible = str(d.get("id", ""))
+        if cible != "aucune" and cible not in [c["id"] for c in cartes_vues()]:
+            raise ValueError(f"Carte {cible} non branchée")
+        if time.time() - redemarrage["t"] < 10:
+            raise ValueError("Redémarrage déjà en cours, patientez")
+        r = tetenam.reglages()
+        if cible == r["CARD"]:
+            return {"ok": True}
+        profils = lire_profils()
+        profils[r["CARD"]] = {k: r[k] for k in ("INPUT", "OUTPUTS", "INPUT_DBU")}
+        nouveau = PROFILS_CONNUS.get(cible, {}) | profils.get(cible, {})
+        r["CARD"] = cible
+        for k in ("INPUT", "OUTPUTS", "INPUT_DBU"):
+            if k in nouveau:
+                r[k] = nouveau[k]
+        ecrire_fichier(FICHIER_CARTES, json.dumps(profils, indent=1))
+        tetenam.ecrire_conf(r)
+        relancer_audio("Carte enregistrée")
+        journal(f"Carte son : {cible}")
+        return {"ok": True, "calibration": r["INPUT_DBU"], "connue": cible in profils or cible in PROFILS_CONNUS}
+
+
 LECTURES = {"/api/etat": api_etat, "/api/tout": api_tout, "/api/config": api_config,
             "/api/systeme": api_systeme, "/api/niveau": api_niveau,
-            "/api/wifi": api_wifi_lire}
+            "/api/wifi": api_wifi_lire, "/api/tone3000": api_tone3000_lire,
+            "/api/bibliotheque": api_bibliotheque_lire, "/api/cartes": api_cartes_lire}
 ROUTES = {"/api/param": api_param, "/api/actif": api_actif, "/api/ordre": api_ordre,
           "/api/ajouter": api_ajouter, "/api/retirer": api_retirer, "/api/preset": api_preset,
           "/api/calibration": api_calibration, "/api/volume": api_volume,
           "/api/buffer": api_buffer, "/api/accordeur": api_accordeur, "/api/midi": api_midi,
-          "/api/veille": api_veille, "/api/wifi": api_wifi}
+          "/api/veille": api_veille, "/api/wifi": api_wifi, "/api/tone3000": api_tone3000,
+          "/api/bibliotheque": api_bibliotheque, "/api/carte": api_carte}
 
 
 class Gestionnaire(BaseHTTPRequestHandler):
@@ -1074,6 +1605,14 @@ class Gestionnaire(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b)
 
+    def page_simple(self, texte):
+        """Petite page pour le téléphone (retour du catalogue TONE3000)."""
+        self.envoyer(200, '<!doctype html><meta charset="utf-8"><meta name="viewport" '
+                     'content="width=device-width,initial-scale=1"><title>Tête NAM</title>'
+                     '<body style="font-family:system-ui;background:#0b0a09;color:#ece6da;'
+                     'padding:32px;text-align:center"><h2 style="color:#d6ac5a">Tête NAM</h2>'
+                     f'<p>{html.escape(texte)}</p></body>', "text/html; charset=utf-8")
+
     def json(self, r):
         self.envoyer(200, json.dumps(r, separators=(",", ":")), "application/json")
 
@@ -1082,9 +1621,26 @@ class Gestionnaire(BaseHTTPRequestHandler):
         if chemin in ("/", "/ui"):
             with open(PAGE, "rb") as f:
                 self.envoyer(200, f.read(), "text/html; charset=utf-8")
+        elif chemin in ("/tone3000-logo.svg", "/tone3000-marque.svg"):
+            with open(os.path.join(ICI, chemin[1:]), "rb") as f:
+                self.envoyer(200, f.read(), "image/svg+xml")
         elif chemin == "/logo.png" and os.path.exists(os.path.join(ICI, "logo.png")):
             with open(os.path.join(ICI, "logo.png"), "rb") as f:
                 self.envoyer(200, f.read(), "image/png")
+        elif chemin == "/tone3000/catalogue":
+            try:
+                self.send_response(302)
+                self.send_header("Location", page_catalogue(self.headers.get("Host", "")))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+            except Exception as e:
+                self.page_simple(str(e))
+        elif chemin == "/tone3000/retour":
+            try:
+                texte = retour_catalogue(urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query))
+            except Exception as e:
+                texte = str(e)
+            self.page_simple(texte)
         elif chemin in LECTURES:
             try:
                 self.json(LECTURES[chemin]())
@@ -1117,6 +1673,7 @@ class Gestionnaire(BaseHTTPRequestHandler):
 
 def main():
     os.makedirs(PRESETS, exist_ok=True)
+    essai_au_demarrage()
     lire_etat()
     lire_midi()
     threading.Thread(target=boucle, daemon=True).start()

@@ -61,7 +61,7 @@ OBJ_MANAGER = "org.freedesktop.DBus.ObjectManager"
 PROPS = "org.freedesktop.DBus.Properties"
 TAILLE_MAX = 50 * 1024 * 1024
 PAGE = os.path.join(os.path.dirname(os.path.realpath(__file__)), "ui.html")
-CHEMIN_API = re.compile(r"^/api/[a-z]+$")
+CHEMIN_API = re.compile(r"^/api/[a-z0-9]+$")
 COMPRESSER_AU_DELA = 600          # octets : en dessous, la compression ne gagne rien
 
 

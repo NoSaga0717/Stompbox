@@ -93,8 +93,10 @@ rm -rf "$CIBLE"
 install -d "$CIBLE"
 install -m 755 "$BINAIRE" "$CIBLE/stompbox-jack"
 install -m 755 "$ICI/run.sh" "$ICI/ecran.sh" "$ICI/cpu-performance.sh" "$ICI/tetenam.py" \
-    "$ICI/web.py" "$ICI/moteur.py" "$ICI/midi.py" "$ICI/ble.py" "$ICI/wifi-secours.sh" "$CIBLE/"
-install -m 644 "$ICI/ui.html" "$ICI/chaine-init.txt" "$ICI/VERSION" "$ICI/demarrage/logo.png" "$CIBLE/"
+    "$ICI/web.py" "$ICI/moteur.py" "$ICI/midi.py" "$ICI/ble.py" "$ICI/wifi-secours.sh" \
+    "$ICI/tone3000.py" "$ICI/bibliotheque.py" "$CIBLE/"
+install -m 644 "$ICI/ui.html" "$ICI/chaine-init.txt" "$ICI/VERSION" "$ICI/demarrage/logo.png" \
+    "$ICI/tone3000-logo.svg" "$ICI/tone3000-marque.svg" "$CIBLE/"
 echo "$(cat "$ICI/VERSION") ($(git -C "$DEPOT" rev-parse --short HEAD 2>/dev/null || echo '?'))" > "$CIBLE/VERSION"
 ln -sf "$CIBLE/tetenam.py" /usr/local/bin/tete-nam
 ln -sf "$CIBLE/wifi-secours.sh" /usr/local/bin/tete-nam-wifi
