@@ -412,13 +412,21 @@
       case "stop": break;
       case "essayer": {
         const t = tone(d.tone_id), m = modelesDemo(t).find(x => x.id === +d.model_id);
-        let b = s.chaine.find(x => x.id === d.bloc && x.type === "NAM") || s.chaine.find(x => x.type === "NAM");
-        if (!b) { ecritures["/api/ajouter"]({type: "NAM", apres: s.chaine.length ? s.chaine[s.chaine.length - 1].id : null}); b = s.chaine.find(x => x.type === "NAM"); }
         const deja = fichierDe(m.id);
+        // Depuis « + » : l'essai va dans un nouveau bloc NAM, retiré si on annule
+        let b = null, cree = false;
+        if (d.nouveau && essai && essai.cree && s.chaine.some(x => x.id === essai.bloc)) {
+          b = s.chaine.find(x => x.id === essai.bloc); cree = true; essai = null;
+        } else if (essai) ecritures["/api/tone3000"]({action: "abandonner"});
+        if (!b && !d.nouveau) b = s.chaine.find(x => x.id === d.bloc && x.type === "NAM") || s.chaine.find(x => x.type === "NAM");
+        if (!b) {
+          const apres = s.chaine.some(x => x.id === d.apres) ? d.apres : (s.chaine.length ? s.chaine[s.chaine.length - 1].id : null);
+          const nouveau = ecritures["/api/ajouter"]({type: "NAM", apres}).id;
+          b = s.chaine.find(x => x.id === nouveau); cree = !deja;
+        }
         if (deja) { b.valeurs.Model = deja; change(); return {ok: true, bloc: b.id, deja}; }
-        if (essai) ecritures["/api/tone3000"]({action: "abandonner"});
         const f = "_essai-" + m.id; ajouterModele(f);
-        essai = {bloc: b.id, ancien: b.valeurs.Model, fichier: f, nom: m.nom, tone: t.titre, t, m};
+        essai = {bloc: b.id, ancien: b.valeurs.Model, cree, fichier: f, nom: m.nom, tone: t.titre, t, m};
         b.valeurs.Model = f; CFG.cfg += "x"; change(); t3kRev++; return {ok: true, bloc: b.id};
       }
       case "garder": {
@@ -428,7 +436,8 @@
         essai = null; CFG.cfg += "x"; change(); t3kRev++; return {ok: true, fichier: f};
       }
       case "abandonner": {
-        if (essai) s.chaine.forEach(b => { if (b.valeurs.Model === essai.fichier) b.valeurs.Model = essai.ancien; });
+        if (essai && essai.cree) s.chaine = s.chaine.filter(b => !(b.id === essai.bloc && b.valeurs.Model === essai.fichier));
+        else if (essai) s.chaine.forEach(b => { if (b.valeurs.Model === essai.fichier) b.valeurs.Model = essai.ancien; });
         essai = null; change(); break;
       }
       case "catalogue": return {ok: true, url: "https://www.tone3000.com"};

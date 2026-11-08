@@ -866,7 +866,7 @@ function feuilleAjout() {
       if (r) { sel = r.id; await maj(true); }
     };
     // Un NAM : on choisit d'abord son modèle dans la bibliothèque (avec la recherche)
-    if (bt.dataset.t === "NAM") return feuilleBibliotheque({titre: "Ajouter un NAM : choisir le modèle", choisir: ajouter});
+    if (bt.dataset.t === "NAM") return feuilleBibliotheque({titre: "Ajouter un NAM : choisir le modèle", choisir: ajouter, ajout: true});
     ajouter();
   });
 }
@@ -1583,7 +1583,8 @@ async function feuilleBibliotheque(o) {
   };
   puces(); liste();
   const env = f.querySelector("#benvoi"); if (env) env.onclick = envoyerFichiers;
-  f.querySelector("#bt3k").onclick = () => feuilleT3K();
+  // Depuis « + » : ce qu'on essaie sur TONE3000 va dans un nouveau bloc NAM
+  f.querySelector("#bt3k").onclick = () => feuilleT3K(o.ajout ? {apres: sel} : null);
 }
 
 /* Fiche d'un modèle : étiquettes, favori, nom affiché, suppression */
@@ -1654,7 +1655,8 @@ const AVEC_TEXTE = ["search", "favorited", "downloaded", "created"];
 const t3Ouverte = () => !!$("t3k");
 async function lireT3() { try { T3 = await api("/api/tone3000"); } catch (e) { T3 = null; } return T3; }
 
-async function feuilleT3K() {
+async function feuilleT3K(ajout) {
+  t3.ajout = ajout || null;
   ouvrir("TONE3000", `<div id="t3k">Lecture…</div>`);
   await lireT3();
   if (t3.vue === "catalogue" || t3.vue === "connexion") t3.vue = "liste";
@@ -1760,7 +1762,7 @@ function dessinerEtatT3() {
   const g = z.querySelector("#t3garde");
   if (g) g.onclick = async () => {
     const r = await action("/api/tone3000", {action: "garder", etiquettes: [...t3.etiq]});
-    if (r) { message("Modèle gardé dans la bibliothèque", true); await relireBib(); await lireT3(); await maj(true); dessinerT3K(); }
+    if (r) { t3.ajout = null; message("Modèle gardé dans la bibliothèque", true); await relireBib(); await lireT3(); await maj(true); dessinerT3K(); }
   };
   const a = z.querySelector("#t3ann2");
   if (a) a.onclick = async () => { await action("/api/tone3000", {action: "abandonner"}); await lireT3(); await maj(true); dessinerT3K(); };
@@ -1845,7 +1847,10 @@ function dessinerTone(z, tete) {
     const m = t3.modeles.find(x => x.id === +b.dataset.essai);
     b.disabled = true; b.textContent = "…";
     if (!m.fichier) message("Téléchargement de l'essai…", true);
-    const r = await action("/api/tone3000", {action: "essayer", tone_id: t.id, model_id: m.id, bloc: sel});
+    const r = await action("/api/tone3000", t3.ajout
+      ? {action: "essayer", tone_id: t.id, model_id: m.id, nouveau: true, apres: t3.ajout.apres}
+      : {action: "essayer", tone_id: t.id, model_id: m.id, bloc: sel});
+    if (r && r.deja) t3.ajout = null;                // modèle déjà là : le bloc est ajouté
     if (r) { sel = r.bloc; message(m.fichier ? `« ${nomAffiche(m.fichier)} » chargé` : `Essai de « ${m.nom} » : jouez !`, true); }
     await relireBib(); await lireT3(); await maj(true); dessinerT3K();
   });
