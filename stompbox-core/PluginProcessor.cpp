@@ -1209,7 +1209,8 @@ std::string PluginProcessor::HandleCommand(std::string const& line)
         else if (commandWords[0] == "Status")
         {
             // One-line status for remote interfaces: DSP load (max since last Status, 0-1), xrun count,
-            // preset loading flag and tuner pitch (Hz, -1 if the tuner is off)
+            // preset loading flag, tuner pitch (Hz, -1 if the tuner is off), input and output peaks
+            // (linear, max since last Status), clip counts (blocks at full scale) and sample rate
             float pitch = -1;
 
             if ((tuner != nullptr) && tuner->Enabled && (tuner->GetParameter("Pitch") != nullptr))
@@ -1218,7 +1219,12 @@ std::string PluginProcessor::HandleCommand(std::string const& line)
             std::string status = "Status DSP " + std::to_string(statusMaxDSPLoad) +
                 " Xruns " + std::to_string(xrunCount.load()) +
                 " Loading " + (IsPresetLoading() ? "1" : "0") +
-                " Pitch " + std::to_string(pitch) + "\r\n";
+                " Pitch " + std::to_string(pitch) +
+                " InPeak " + std::to_string(statusInPeak.exchange(0)) +
+                " OutPeak " + std::to_string(statusOutPeak.exchange(0)) +
+                " InClips " + std::to_string(inClipCount.load()) +
+                " OutClips " + std::to_string(outClipCount.load()) +
+                " Rate " + std::to_string((int)sampleRate) + "\r\n";
 
             statusMaxDSPLoad = 0;
 
@@ -1646,6 +1652,8 @@ void PluginProcessor::Process(float* input, float* output, size_t count)
     std::feholdexcept(&fe_state);
     disable_denormals();
 
+    MeasurePeak(input, count, statusInPeak, inClipCount);
+
     memcpy(output, input, count * sizeof(float));
 
     if ((ramp == 0) || (rampSamplesSoFar != rampSamples))
@@ -1706,9 +1714,26 @@ void PluginProcessor::Process(float* input, float* output, size_t count)
     }
 
     MeasureOutputLevel(output, count);
+    MeasurePeak(output, count, statusOutPeak, outClipCount);
 
     // restore previous floating point state
     std::feupdateenv(&fe_state);
+}
+
+// Peak of a block (kept as the max since the last "Status") and clip count: a sample at or over
+// digital full scale means the converter clips (ADC on the input, DAC on the output).
+void PluginProcessor::MeasurePeak(const float* data, size_t count, std::atomic<float>& peak, std::atomic<int>& clips)
+{
+    float blockPeak = 0;
+
+    for (size_t i = 0; i < count; i++)
+        blockPeak = std::max(blockPeak, fabsf(data[i]));
+
+    if (blockPeak > peak.load(std::memory_order_relaxed))
+        peak.store(blockPeak, std::memory_order_relaxed);
+
+    if (blockPeak >= 0.999f)
+        clips.fetch_add(1, std::memory_order_relaxed);
 }
 
 void PluginProcessor::MeasureOutputLevel(const float* output, size_t count)

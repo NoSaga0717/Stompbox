@@ -13,7 +13,8 @@ Commandes utilisées :
   SetParam <id> <param>      remet le réglage à sa valeur par défaut
   Dump Program               état complet (chaînes + réglages)
   Dump Config                description de tous les types de blocs
-  Status                     DSP, xruns, preset en chargement, accordeur
+  Status                     DSP, xruns, preset en chargement, accordeur,
+                             crêtes et écrêtages entrée/sortie, fréquence
   SavePreset / LoadPreset / DeletePreset <nom>
   SetInputLevelDBu <dBu>     calibration d'entrée des NAM
   RescanFiles                relit les dossiers de modèles
@@ -117,13 +118,20 @@ class Moteur:
 
     def statut(self):
         _, lignes, _ = self.commande("Status")
-        r = {"dsp": None, "xruns": 0, "chargement": False, "hauteur": -1.0}
+        r = {"dsp": None, "xruns": 0, "chargement": False, "hauteur": -1.0,
+             "crete_in": None, "crete_out": None, "ecretages_in": 0, "ecretages_out": 0, "frequence": None}
         for l in lignes:
             m = l.split()
             if m[:1] == ["Status"]:
                 d = dict(zip(m[1::2], m[2::2]))
                 r = {"dsp": nombre(d.get("DSP"), 0) * 100, "xruns": int(nombre(d.get("Xruns"))),
-                     "chargement": d.get("Loading") == "1", "hauteur": nombre(d.get("Pitch"), -1)}
+                     "chargement": d.get("Loading") == "1", "hauteur": nombre(d.get("Pitch"), -1),
+                     # crêtes (linéaire, 1 = pleine échelle) depuis le dernier Status, nombre de
+                     # blocs arrivés à pleine échelle (écrêtage du convertisseur), fréquence JACK
+                     "crete_in": nombre(d.get("InPeak"), None), "crete_out": nombre(d.get("OutPeak"), None),
+                     "ecretages_in": int(nombre(d.get("InClips"), 0)),
+                     "ecretages_out": int(nombre(d.get("OutClips"), 0)),
+                     "frequence": int(nombre(d.get("Rate"), 0)) or None}
         return r
 
     def niveaux(self):

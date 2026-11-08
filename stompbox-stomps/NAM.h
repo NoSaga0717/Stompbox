@@ -62,8 +62,6 @@ private:
 	float modelIndex = -1;
 	float prevDCInput = 0;
 	double prevDCOutput = 0;
-	float qualityScale = 1.0f;
-	float currentQualityScale = 1.0f;
 	float outputMode = NAM_OUTPUT_NORMALIZED;
 	FileType fileType;
 	NAMLoader namLoader;

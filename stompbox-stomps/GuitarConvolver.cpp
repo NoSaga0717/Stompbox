@@ -49,6 +49,46 @@ void GuitarConvolver::SetParameterValue(StompBoxParameter &parameter, float valu
     }
 }
 
+// Re-reads the impulse response folder (an IR was added or removed) and keeps pointing at the
+// same file, whose index may have moved, without reloading it
+bool GuitarConvolver::RescanFiles()
+{
+    std::filesystem::path currentPath;
+
+    int index = (int)impulseIndex;
+
+    if ((index >= 0) && (index < (int)fileType.GetFilePaths().size()))
+        currentPath = fileType.GetFilePaths()[index];
+
+    fileType.IndexFiles();
+
+    int newIndex = -1;
+
+    const auto& paths = fileType.GetFilePaths();
+
+    for (size_t i = 0; i < paths.size(); i++)
+    {
+        if (paths[i] == currentPath)
+        {
+            newIndex = (int)i;
+
+            break;
+        }
+    }
+
+    StompBoxParameter* impulseParam = GetParameter("Impulse");
+
+    impulseParam->MaxValue = (float)(paths.size()) - 1;
+
+    if (newIndex != -1)
+    {
+        impulseIndex = (float)newIndex;
+        irLoader.SetLoadedIndex(newIndex);
+    }
+
+    return true;
+}
+
 void GuitarConvolver::compute(int count, float* input, float* output)
 {
     auto conv = irLoader.GetCurrentData();

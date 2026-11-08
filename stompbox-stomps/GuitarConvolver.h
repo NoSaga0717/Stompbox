@@ -51,7 +51,7 @@ protected:
 
 		float* waveData = waveReader->GetWaveData();
 
-		if (waveData != nullptr)
+		if ((waveData != nullptr) && (waveReader->NumSamples > 0))
 		{
 			size_t endPos = waveReader->NumSamples;
 
@@ -62,15 +62,16 @@ protected:
 
 			size_t numGreater = 0;
 
-			while (endPos >= 0)
+			// (endPos is unsigned: stop at 0, a very quiet IR used to run past the start of the buffer)
+			while (true)
 			{
-				if (abs(waveData[endPos]) > epsilon)
+				if (fabsf(waveData[endPos]) > epsilon)
 				{
 					numGreater++;
 
 					if (numGreater > 10)
 					{
-						endPos += 10;
+						endPos = std::min(endPos + 10, (size_t)waveReader->NumSamples - 1);
 
 						break;
 					}
@@ -79,6 +80,9 @@ protected:
 				{
 					numGreater = 0;
 				}
+
+				if (endPos == 0)
+					break;
 
 				endPos--;
 			}
@@ -112,6 +116,8 @@ protected:
 		}
 
 		std::cout << "** IR load failed" << std::endl;
+
+		delete waveReader;
 
 		return nullptr;
 	}
@@ -153,6 +159,7 @@ public:
 	virtual ~GuitarConvolver() {}
 	virtual void init(int samplingFreq) override;
 	void SetParameterValue(StompBoxParameter& parameter, float value) override;
+	bool RescanFiles() override;
 	void SetMaxIRSamples(int numSamples)
 	{
 		irLoader.SetMaxIRSamples(numSamples);

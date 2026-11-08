@@ -25,10 +25,17 @@ NeuralAudio::NeuralModel* NAMLoader::LoadFromFile(const std::filesystem::path& l
     // Models must be ready for the largest block the host will send
     modelLoader.SetDefaultMaxAudioBufferSize(std::max(StompBox::MaxAudioBufferSize, 32));
 
+    // Always the full model: an A2 file packs several sizes of the same capture (full and lite),
+    // and the smaller ones are audibly different. There is no quality setting any more.
+    modelLoader.SetDefaultQualityScaleFactor(1.0f);
+
     auto model = modelLoader.CreateFromFile(loadPath);
 
     if (model != nullptr)
     {
+        if (model->HasQualityScaling())
+            model->SetQualityScaleFactor(1.0f);
+
         NAMModelLevels& slot = levelSlots[nextLevelSlot];
 
         slot.InputDBu = ReadModelLevel(model, "input_level_dbu");
@@ -69,16 +76,6 @@ NAM::NAM(const std::string folderName, const std::vector<std::string> fileExtens
     modelParam.Description = "Selected NAM model";
     modelParam.MinValue = -1;
     modelParam.MaxValue = (float)(fileType.GetFileNames().size()) - 1;
-
-    auto& qualityParam = AddParameter();
-    qualityParam.Name = "Quality";
-    qualityParam.SourceVariable = &qualityScale;
-    qualityParam.ParameterType = PARAMETER_TYPE_KNOB;
-    qualityParam.DefaultValue = 1.0f;
-    qualityParam.Description = "Model quality scale factor";
-    qualityParam.MinValue = 0.0f;
-    qualityParam.MaxValue = 1.0f;
-    qualityParam.IsAdvanced = true;
 
     auto& outputModeParam = AddParameter();
     outputModeParam.Name = "OutputMode";
@@ -161,13 +158,6 @@ void NAM::compute(int count, float* input, float* output)
     {
         levelsModel = activeModel;
         modelLevels = namLoader.GetLevels(activeModel);
-    }
-
-    if (qualityScale != currentQualityScale)
-    {
-        activeModel->SetQualityScaleFactor(qualityScale);
-
-        currentQualityScale = qualityScale;
     }
 
     // Input calibration: match the interface level (dBu at 0 dBFS) to the level the model was
