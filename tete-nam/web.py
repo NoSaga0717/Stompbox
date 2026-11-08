@@ -37,6 +37,9 @@ API (tout en JSON) :
                       nouvelle_etiquette|retirer_etiquette, ...}
   GET  /api/cartes    cartes son branchées et carte utilisée
   POST /api/carte     {id}   change de carte son (relance l'audio)
+  GET  /api/mesure    mesure de calibration en cours : niveau lu sur l'entrée
+  POST /api/mesure    {action: ports|demarrer|regler|arreter, sortie, entree, freq,
+                      niveau, son}   sinus de test pour mesurer les dBu de la carte
   GET  /tone3000/catalogue   (téléphone) ouvre le catalogue TONE3000 ; le tone
                       choisi revient sur /tone3000/retour puis s'ouvre sur la tête
 
@@ -681,6 +684,7 @@ def relancer_audio(quoi):
     """Relance le service audio (JACK + moteur) après un changement de la conf.
     Autorisé sans mot de passe par /etc/sudoers.d/tete-nam (install.sh)."""
     sauver_en_cours()
+    arreter_mesure()
     p = subprocess.run(["sudo", "-n", "systemctl", "restart", "--no-block", "tete-nam"],
                        capture_output=True, text=True, timeout=10)
     if p.returncode:
@@ -1614,16 +1618,166 @@ def api_carte(d):
         return {"ok": True, "calibration": r["INPUT_DBU"], "connue": cible in profils or cible in PROFILS_CONNUS}
 
 
+# --- Mesure de la calibration de la carte son --------------------------------------
+# Outil tete-nam-mesure (mesure-niveau.c) : joue un sinus sur une sortie de la
+# carte et mesure le niveau reçu sur une entrée. Avec un multimètre sur le
+# câble, on en déduit les dBu qui donnent 0 dBFS (procédure : README, section
+# « Mesurer la calibration »). Pendant la mesure, l'outil coupe le moteur des
+# sorties de la carte, puis remet tout. Sans nouvelles de la page pendant 30 s
+# (GET /api/mesure), il s'arrête seul : un sinus ne reste jamais bloqué.
+MESURE_BIN = os.environ.get("TETE_NAM_MESURE", "/opt/tete-nam/tete-nam-mesure")
+mesure = {"proc": None, "lecture": None, "reglage": {}, "erreur": "", "coupees": 0}
+verrou_mesure = threading.Lock()
+
+
+def binaire_mesure():
+    for c in (MESURE_BIN, os.path.join(ICI, "tete-nam-mesure")):
+        if os.access(c, os.X_OK):
+            return c
+    raise ValueError("Outil de mesure absent : relancez install.sh")
+
+
+def ports_carte():
+    p = subprocess.run([binaire_mesure(), "--ports"], capture_output=True, text=True, timeout=10)
+    try:
+        d = json.loads(p.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        raise ValueError("Outil de mesure : réponse illisible")
+    if not d.get("ok"):
+        raise ValueError(d.get("erreur") or "Ports de la carte illisibles")
+    return d
+
+
+def lire_sortie_mesure(proc):
+    for ligne in proc.stdout:
+        try:
+            d = json.loads(ligne)
+        except ValueError:
+            continue
+        if d.get("ok") is False:
+            mesure["erreur"] = d.get("erreur", "Erreur de mesure")
+        elif "lu" in d and mesure["proc"] is proc:
+            mesure["lecture"] = d
+    proc.wait()
+    with verrou_mesure:
+        if mesure["proc"] is proc:
+            mesure["proc"] = None
+            mesure["lecture"] = None
+
+
+def ecrire_mesure(texte, p=None):
+    p = p or mesure["proc"]
+    if p is None:
+        return False
+    try:
+        p.stdin.write(texte + "\n")
+        p.stdin.flush()
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def arreter_mesure():
+    with verrou_mesure:
+        p = mesure["proc"]
+        mesure["proc"] = None
+        mesure["lecture"] = None
+    if p is None:
+        return
+    ecrire_mesure("q", p)
+    try:
+        p.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        p.terminate()
+        try:
+            p.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            p.kill()
+
+
+def api_mesure_lire():
+    """Appelé ~3 fois par seconde par la page de mesure : sert aussi de « je suis là »."""
+    actif = ecrire_mesure("k")
+    r = tetenam.reglages()
+    return {"ok": True, "actif": actif, "lecture": mesure["lecture"] if actif else None,
+            "reglage": mesure["reglage"], "erreur": mesure["erreur"], "coupees": mesure["coupees"],
+            "INPUT_DBU": r["INPUT_DBU"], "CARD": r["CARD"]}
+
+
+def api_mesure(d):
+    a = d.get("action")
+    if a == "ports":
+        p = ports_carte()
+        r = tetenam.reglages()
+        sorties_moteur = r["OUTPUTS"].split()
+        libres = [x for x in p["sorties"] if x not in sorties_moteur]
+        return {"ok": True, "captures": p["captures"], "sorties": p["sorties"],
+                "sorties_moteur": sorties_moteur, "frequence": p.get("frequence"),
+                "entree": r["INPUT"] if r["INPUT"] in p["captures"] else (p["captures"] or [""])[0],
+                "sortie": (libres or p["sorties"] or [""])[0],
+                "CARD": r["CARD"], "INPUT_DBU": r["INPUT_DBU"]}
+    if a == "demarrer":
+        if time.time() - redemarrage["t"] < 10:
+            raise ValueError("L'audio redémarre, patientez")
+        p = ports_carte()
+        sortie, entree = str(d.get("sortie", "")), str(d.get("entree", ""))
+        if sortie not in p["sorties"] or entree not in p["captures"]:
+            raise ValueError("Choisissez une sortie et une entrée de la carte son")
+        freq = min(20000.0, max(20.0, float(d.get("freq", 1000))))
+        niveau_ = min(0.0, max(-60.0, float(d.get("niveau", -10))))
+        arreter_mesure()
+        proc = subprocess.Popen([binaire_mesure(), "--sortie", sortie, "--entree", entree,
+                                 "--freq", f"{freq:g}", "--niveau", f"{niveau_:g}"],
+                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+        premiere = proc.stdout.readline()
+        try:
+            r = json.loads(premiere)
+        except ValueError:
+            r = {"ok": False, "erreur": "L'outil de mesure ne répond pas"}
+        if not r.get("ok"):
+            proc.kill()
+            proc.wait()
+            raise ValueError(r.get("erreur", "Mesure impossible"))
+        with verrou_mesure:
+            mesure.update(proc=proc, lecture=None, erreur="", coupees=r.get("coupees", 0),
+                          reglage={"sortie": sortie, "entree": entree, "freq": freq,
+                                   "niveau": niveau_, "son": True})
+        threading.Thread(target=lire_sortie_mesure, args=(proc,), daemon=True).start()
+        journal(f"Mesure : sinus {freq:g} Hz {niveau_:g} dBFS sur {sortie}, lecture sur {entree}")
+        return {"ok": True}
+    if a == "regler":
+        if mesure["proc"] is None:
+            raise ValueError("Mesure arrêtée")
+        g = mesure["reglage"]
+        if "freq" in d:
+            g["freq"] = min(20000.0, max(20.0, float(d["freq"])))
+            ecrire_mesure(f"f {g['freq']:g}")
+        if "niveau" in d:
+            g["niveau"] = min(0.0, max(-60.0, float(d["niveau"])))
+            ecrire_mesure(f"n {g['niveau']:g}")
+        if "son" in d:
+            g["son"] = bool(d["son"])
+            ecrire_mesure(f"s {1 if g['son'] else 0}")
+        mesure["lecture"] = None
+        return {"ok": True}
+    if a == "arreter":
+        arreter_mesure()
+        return {"ok": True}
+    raise ValueError("Action inconnue")
+
+
 LECTURES = {"/api/etat": api_etat, "/api/tout": api_tout, "/api/config": api_config,
             "/api/systeme": api_systeme, "/api/niveau": api_niveau,
             "/api/wifi": api_wifi_lire, "/api/tone3000": api_tone3000_lire,
-            "/api/bibliotheque": api_bibliotheque_lire, "/api/cartes": api_cartes_lire}
+            "/api/bibliotheque": api_bibliotheque_lire, "/api/cartes": api_cartes_lire,
+            "/api/mesure": api_mesure_lire}
 ROUTES = {"/api/param": api_param, "/api/actif": api_actif, "/api/ordre": api_ordre,
           "/api/ajouter": api_ajouter, "/api/retirer": api_retirer, "/api/preset": api_preset,
           "/api/calibration": api_calibration, "/api/volume": api_volume,
           "/api/buffer": api_buffer, "/api/accordeur": api_accordeur, "/api/midi": api_midi,
           "/api/veille": api_veille, "/api/wifi": api_wifi, "/api/tone3000": api_tone3000,
-          "/api/bibliotheque": api_bibliotheque, "/api/carte": api_carte}
+          "/api/bibliotheque": api_bibliotheque, "/api/carte": api_carte,
+          "/api/mesure": api_mesure}
 
 
 class Gestionnaire(BaseHTTPRequestHandler):

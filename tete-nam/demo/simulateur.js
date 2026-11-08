@@ -453,6 +453,31 @@
     s.carte = d.id; const connue = d.id in s.cartesCal; if (connue) s.cal = s.cartesCal[d.id];
     rev++; sauver(); return {ok: true, calibration: s.cal, connue};
   };
+  // Mesure de calibration simulée : une fausse UMC dont la sortie donne
+  // +10 dBu à 0 dBFS et l'entrée 0 dBFS pour +22,5 dBu (câble sortie 3 → entrée 1)
+  const M = {actif: false, r: null, t: 0};
+  lectures["/api/mesure"] = () => {
+    let lecture = null;
+    if (M.actif && Date.now() - M.t > 900) {
+      const boucle = M.r.sortie === "system:playback_3" && M.r.entree === "system:capture_1";
+      const lu = boucle && M.r.son !== false ? M.r.niveau + 10 - 22.5 + (Math.random() - 0.5) * 0.02 : -96;
+      lecture = {lu, crete: lu + 0.01, freq_lue: boucle ? M.r.freq : 0, freq: M.r.freq, niveau: M.r.niveau, stable: 1};
+    }
+    return {ok: true, actif: M.actif, lecture, reglage: M.r, erreur: "", INPUT_DBU: s.cal, CARD: s.carte || "M4"};
+  };
+  ecritures["/api/mesure"] = d => {
+    switch (d.action) {
+      case "ports": return {ok: true, captures: ["system:capture_1", "system:capture_2"],
+        sorties: ["system:playback_1", "system:playback_2", "system:playback_3", "system:playback_4"],
+        sorties_moteur: ["system:playback_1", "system:playback_2"], sortie: "system:playback_3",
+        entree: "system:capture_1", INPUT_DBU: s.cal, CARD: s.carte || "M4"};
+      case "demarrer": M.actif = true; M.r = {sortie: d.sortie, entree: d.entree, freq: +d.freq, niveau: +d.niveau}; M.t = Date.now(); break;
+      case "regler": Object.assign(M.r, d); delete M.r.action; M.t = Date.now(); break;
+      case "arreter": M.actif = false; break;
+      default: throw new Error("Action inconnue");
+    }
+    return {ok: true};
+  };
   const etatAvant = lectures["/api/etat"];
   lectures["/api/etat"] = () => Object.assign(etatAvant(), {bib: bibRev, t3k: t3kRev});
   const toutAvant = lectures["/api/tout"];

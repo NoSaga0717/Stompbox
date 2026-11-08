@@ -97,6 +97,9 @@ install -m 755 "$ICI/run.sh" "$ICI/ecran.sh" "$ICI/cpu-performance.sh" "$ICI/tet
     "$ICI/tone3000.py" "$ICI/bibliotheque.py" "$CIBLE/"
 install -m 644 "$ICI/ui.html" "$ICI/chaine-init.txt" "$ICI/VERSION" "$ICI/demarrage/logo.png" \
     "$ICI/tone3000-logo.svg" "$ICI/tone3000-marque.svg" "$CIBLE/"
+# Outil de mesure de la calibration (sinus de test + niveau lu), page Système
+gcc -O2 -o "$CIBLE/tete-nam-mesure" "$ICI/mesure-niveau.c" -ljack -lm \
+    || echo "ATTENTION : outil de mesure non compilé (Système → Mesurer… ne marchera pas)"
 echo "$(cat "$ICI/VERSION") ($(git -C "$DEPOT" rev-parse --short HEAD 2>/dev/null || echo '?'))" > "$CIBLE/VERSION"
 ln -sf "$CIBLE/tetenam.py" /usr/local/bin/tete-nam
 ln -sf "$CIBLE/wifi-secours.sh" /usr/local/bin/tete-nam-wifi

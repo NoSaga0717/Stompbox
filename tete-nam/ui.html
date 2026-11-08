@@ -353,6 +353,17 @@ header{background:linear-gradient(180deg,#14120f,var(--barre));border-bottom:1px
 .mligne small{color:var(--doux)}
 #feuille a{color:var(--accent)}
 .tdesc{font-size:13px;color:var(--doux);margin-top:6px;max-height:3.9em;overflow:hidden}
+/* Mesure de la calibration */
+.mavert{border:1px solid var(--moyen);color:var(--moyen);border-radius:10px;padding:8px 10px;font-size:14px;line-height:1.35}
+.metapes{color:var(--doux);font-size:13px;line-height:1.45;margin:8px 0 0;padding-left:20px}
+.metapes b{color:var(--texte);font-weight:500}
+.mval{min-width:96px;text-align:center;font-size:18px}
+.mstats{margin-top:6px}
+.mstats b{font-size:18px}
+.mtab{width:100%;border-collapse:collapse;font-size:14px;margin:4px 0}
+.mtab th{color:var(--doux);font-weight:400;font-size:12px;text-align:right;padding:3px 6px}
+.mtab td{text-align:right;padding:4px 6px;border-top:1px solid var(--trait2)}
+.mres b{color:var(--accent);font-size:18px}
 </style></head><body>
 <div id="demarrage" class="ouvert"><img src="/logo.png" alt="Tête NAM" onerror="this.style.display='none'"><div class="dbarre"><div></div></div><div class="dtxt">Démarrage du moteur audio…</div></div>
 <div id="bandeau"></div>
@@ -721,7 +732,7 @@ function ouvrir(titre, html) {
   return $("fcorps");
 }
 function fermer() {
-  $("feuille").classList.remove("ouverte"); $("voile").classList.remove("ouvert"); arreterGraphe();
+  $("feuille").classList.remove("ouverte"); $("voile").classList.remove("ouvert"); arreterGraphe(); arreterMesure();
   if (apprentissage) { apprentissage = false; action("/api/midi", {action: "annuler"}); }
 }
 let apprentissage = false;          // une écoute MIDI est en cours
@@ -943,9 +954,9 @@ async function feuilleSysteme() {
     <canvas id="ygraphe"></canvas>
     <div class="etiq">Buffer JACK (× ${r.NPERIODS}) · changer relance l'audio (5 s de silence)</div><div class="rangs">` +
     T.buffers.map(b => `<button class="${b === r.PERIOD ? "prim" : ""}" data-buf="${b}">${b} · ${(b * r.NPERIODS / r.RATE * 1000).toFixed(1)} ms</button>`).join("") + `</div>
-    <div class="etiq">Calibration d'entrée (dBu pour 0 dBFS, MOTU M4 : 16)</div>
+    <div class="etiq">Calibration d'entrée (dBu pour 0 dBFS) · dépend du gain de la carte : à mesurer</div>
     <div class="rangs"><button data-cal="-1">−1</button><button data-cal="-0.5">−0.5</button><b id="ycal" style="min-width:90px;text-align:center;font-size:18px">${r.INPUT_DBU} dBu</b>
-      <button data-cal="0.5">+0.5</button><button data-cal="1">+1</button></div>
+      <button data-cal="0.5">+0.5</button><button data-cal="1">+1</button><span style="flex:1"></span><button id="ymesure">Mesurer…</button></div>
     <div class="etiq">Volume général</div>
     <div class="rangs"><button data-vol="-3">−3</button><button data-vol="-1">−1</button><b id="yvol" style="min-width:90px;text-align:center;font-size:18px">${T.volume} dB</b>
       <button data-vol="1">+1</button><button data-vol="3">+3</button><button data-vol="0" data-abs="1">0 dB</button></div>`;
@@ -991,6 +1002,7 @@ async function feuilleSysteme() {
   });
   const env = f.querySelector("#yenvoi"); if (env) env.onclick = envoyerFichiers;
   f.querySelector("#ymidi").onclick = feuilleMidi;
+  f.querySelector("#ymesure").onclick = feuilleMesure;
   f.querySelector("#ywifibt").onclick = feuilleWifi;
   f.querySelector("#yt3kbt").onclick = () => feuilleT3K();
   f.querySelector("#ycle").onclick = () => entrerCle(feuilleSysteme);
@@ -1047,6 +1059,156 @@ function graphe(c, h) {
   h.forEach((v, i) => { if (v == null) { premier = true; return; } const px = i / 119 * w, py = ht - Math.min(v, 100) / 100 * ht; premier ? x.moveTo(px, py) : x.lineTo(px, py); premier = false; });
   x.stroke();
 }
+/* ---------- Mesure de la calibration de la carte son ----------
+   La tête joue un sinus sur une sortie de la carte et lit le niveau reçu sur
+   une entrée ; on mesure la tension du câble au multimètre. On en tire :
+     dBu = 20 × log10(V / 0,7746)
+     sortie : 0 dBFS = dBu − niveau du sinus joué
+     entrée : 0 dBFS = dBu − niveau lu sur l'entrée (dBFS crête)          */
+let mesureTimer = null;
+function arreterMesure() {
+  if (!mesureTimer) return;
+  clearInterval(mesureTimer); mesureTimer = null;
+  action("/api/mesure", {action: "arreter"});
+}
+const nomPort = p => { const m = /(capture|playback)_(\d+)$/.exec(p || "");
+  return m ? (m[1] === "capture" ? "Entrée " : "Sortie ") + m[2] : p; };
+const versDBu = v => 20 * Math.log10(v / 0.7746);
+const signe = (v, d = 1) => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(d);
+async function feuilleMesure() {
+  const P = await action("/api/mesure", {action: "ports"});
+  if (!P) return;
+  if (!P.sorties.length || !P.captures.length) return message("Pas de carte son : choisissez-la dans Système");
+  const R = {sortie: P.sortie, entree: P.entree, freq: 100, niveau: -10};
+  let marche = false, lecture = null, points = [];
+  const f = ouvrir("Mesurer la calibration", `
+    <div class="mavert">⚠ Baissez les enceintes. Pendant la mesure, le son du moteur est coupé ; seule la sortie testée
+      joue un sinus (fort). Réglez le gain de la carte comme pour jouer et n'y touchez plus ensuite.</div>
+    <ol class="metapes">
+      <li>Câble jack de la <b>sortie testée</b>, l'autre bout <b>libre</b> : multimètre en <b>V alternatif</b> entre la pointe et le corps du jack.</li>
+      <li>Tapez la tension lue ci-dessous.</li>
+      <li>Branchez ce bout libre dans l'<b>entrée testée</b> (celle de la guitare), attendez « propre », puis <b>Noter ce point</b>.</li>
+      <li>Débranchez, changez le niveau (−6 dB par ex.) et refaites 1 à 3. Deux points qui se suivent à 0,2 dB près = mesure bonne.</li>
+    </ol>
+    <div class="etiq">Sortie testée${P.sorties_moteur.length ? " (" + P.sorties_moteur.map(nomPort).join(", ") + " = sorties du son)" : ""}</div>
+    <div class="rangs"><span class="seg" id="msort">${P.sorties.map(p => `<button data-p="${echap(p)}">${echap(nomPort(p))}</button>`).join("")}</span></div>
+    <div class="etiq">Entrée testée</div>
+    <div class="rangs"><span class="seg" id="ment">${P.captures.map(p => `<button data-p="${echap(p)}">${echap(nomPort(p))}</button>`).join("")}</span></div>
+    <div class="etiq">Sinus joué</div>
+    <div class="rangs"><span class="seg" id="mfreq"><button data-f="100">100 Hz</button><button data-f="400">400 Hz</button><button data-f="1000">1 kHz</button></span>
+      <button data-n="-6">−6</button><button data-n="-1">−1</button><b id="mniv" class="mval"></b><button data-n="1">+1</button><button data-n="6">+6</button>
+      <span style="flex:1"></span><button id="mmarche" class="prim">Démarrer le sinus</button></div>
+    <div class="stats mstats"><div><small>Lu sur l'entrée</small><b id="mlu">–</b></div><div><small>Fréquence reçue</small><b id="mfl">–</b></div>
+      <div><small>Signal</small><b id="mforme" style="font-size:15px">arrêté</b></div><div><small>Multimètre</small><b id="mdbu">–</b></div></div>
+    <div class="etiq">Tension lue au multimètre, en volts alternatifs (ex. 0.612)</div>
+    <div class="rangs"><input class="champ" id="mvolts" style="flex:1 1 140px;width:auto" inputmode="decimal" autocomplete="off" ${ECRAN ? "readonly" : ""}>
+      <button id="mnoter">Noter ce point</button></div>
+    ${ECRAN ? `<div class="clavier compact" id="mclav"></div>` : ""}
+    <div class="rangs mres" id="mapercu"></div>
+    <div id="mpoints"></div>
+    <div class="rangs"><span class="wetat" style="flex:1 1 220px" id="mres">Calibration actuelle : <b>${P.INPUT_DBU} dBu</b> (carte ${echap(P.CARD)})</span>
+      <button id="meff">Effacer les points</button><button id="mappl" class="prim" disabled>Appliquer</button></div>
+    <div class="pied">Méthode détaillée : README de la tête, « Mesurer la calibration de la carte son ».</div>`);
+  const champ = f.querySelector("#mvolts");
+  const seg = (id, val, attr) => f.querySelectorAll(`#${id} [data-${attr}]`).forEach(b => b.classList.toggle("on", b.dataset[attr] === String(val)));
+  const volts = () => { const v = parseFloat(champ.value.replace(",", ".")); return v > 0 && v < 100 ? v : null; };
+  // état du signal reçu : texte, et vrai si on peut noter le point
+  const forme = l => {
+    if (!marche) return ["arrêté", false];
+    if (!l) return ["attente…", false];
+    if (l.lu < -70) return ["rien reçu", false];
+    if (Math.abs(l.freq_lue - l.freq) > l.freq * 0.03) return ["pas le sinus", false];
+    if (l.crete > -0.3) return ["saturé : baissez", false];
+    if (l.crete - l.lu > 0.5) return ["déformé", false];
+    if (!l.stable) return ["attente…", false];
+    return ["propre", true];
+  };
+  const dessiner = () => {
+    $("mniv").textContent = R.niveau + " dBFS";
+    seg("msort", R.sortie, "p"); seg("ment", R.entree, "p"); seg("mfreq", R.freq, "f");
+    f.querySelector("#mmarche").textContent = marche ? "Arrêter" : "Démarrer le sinus";
+    f.querySelector("#mmarche").classList.toggle("prim", !marche);
+    const l = lecture, [txt, bon] = forme(l), v = volts();
+    $("mlu").textContent = marche && l ? l.lu.toFixed(2) + " dBFS" : "–";
+    $("mfl").textContent = marche && l ? (l.freq_lue >= 1000 ? (l.freq_lue / 1000).toFixed(2) + " kHz" : l.freq_lue.toFixed(0) + " Hz") : "–";
+    $("mforme").textContent = txt; $("mforme").style.color = bon ? "var(--ok)" : marche ? "var(--moyen)" : "";
+    $("mdbu").textContent = v ? signe(versDBu(v), 2) + " dBu" : "–";
+    let a = "";
+    if (v) a += `<span>Sortie : 0 dBFS = <b>${signe(versDBu(v) - R.niveau)} dBu</b></span>`;
+    if (v && bon) a += `<span>Entrée : 0 dBFS = <b>${signe(versDBu(v) - l.lu)} dBu</b></span>`;
+    $("mapercu").innerHTML = a;
+    f.querySelector("#mnoter").disabled = !(v && bon);
+    if (points.length) {
+      const moy = k => points.reduce((s, p) => s + p[k], 0) / points.length;
+      const ecart = k => Math.max(...points.map(p => p[k])) - Math.min(...points.map(p => p[k]));
+      $("mpoints").innerHTML = `<table class="mtab"><tr><th>Sinus</th><th>Fréq.</th><th>Multimètre</th><th>Lu</th><th>Sortie 0 dBFS</th><th>Entrée 0 dBFS</th></tr>` +
+        points.map(p => `<tr><td>${p.niveau} dBFS</td><td>${p.freq} Hz</td><td>${p.volts} V = ${signe(p.dbu, 2)} dBu</td><td>${p.lu.toFixed(2)}</td>
+          <td>${signe(p.sortie, 2)} dBu</td><td>${signe(p.entree, 2)} dBu</td></tr>`).join("") + `</table>`;
+      $("mres").innerHTML = `Entrée : <b>${signe(moy("entree"))} dBu</b>` + (points.length > 1 ? ` (écart ${ecart("entree").toFixed(2)} dB)` : " · notez un 2ᵉ point pour vérifier") +
+        ` · sortie : ${signe(moy("sortie"))} dBu · actuelle ${P.INPUT_DBU} dBu`;
+      f.querySelector("#mappl").disabled = false;
+      f.querySelector("#mappl").textContent = `Appliquer ${(Math.round(moy("entree") * 10) / 10).toFixed(1)} dBu`;
+    } else {
+      $("mpoints").innerHTML = "";
+      f.querySelector("#mappl").disabled = true; f.querySelector("#mappl").textContent = "Appliquer";
+    }
+  };
+  const regler = async corps => {
+    champ.value = "";                 // la tension notée valait pour l'ancien réglage
+    lecture = null; dessiner();
+    if (marche) await action("/api/mesure", {action: "regler", ...corps});
+  };
+  const demarrer = async () => {
+    lecture = null;
+    marche = !!await action("/api/mesure", {action: "demarrer", ...R});
+    clearInterval(mesureTimer); mesureTimer = null;
+    if (marche) mesureTimer = setInterval(async () => {
+      if (!$("mlu")) return arreterMesure();
+      try {
+        const m = await api("/api/mesure");
+        if (!m.actif) { if (marche) message(m.erreur || "Mesure arrêtée"); marche = false; clearInterval(mesureTimer); mesureTimer = null; }
+        lecture = m.lecture; if ($("mlu")) dessiner();
+      } catch (e) {}
+    }, BLE() ? 1000 : 300);
+    dessiner();
+  };
+  f.querySelector("#mmarche").onclick = () => marche ? (arreterMesure(), marche = false, dessiner()) : demarrer();
+  f.querySelectorAll("#msort [data-p]").forEach(b => b.onclick = () => {
+    if (P.sorties_moteur.includes(b.dataset.p)) message("Sortie du son : le sinus partira aussi dans les enceintes branchées dessus", true);
+    R.sortie = b.dataset.p; champ.value = ""; marche ? demarrer() : dessiner(); });
+  f.querySelectorAll("#ment [data-p]").forEach(b => b.onclick = () => { R.entree = b.dataset.p; marche ? demarrer() : dessiner(); });
+  f.querySelectorAll("#mfreq [data-f]").forEach(b => b.onclick = () => { R.freq = +b.dataset.f; regler({freq: R.freq}); });
+  f.querySelectorAll("[data-n]").forEach(b => b.onclick = () => {
+    R.niveau = Math.max(-60, Math.min(0, R.niveau + +b.dataset.n)); regler({niveau: R.niveau}); });
+  champ.oninput = dessiner;
+  const k = f.querySelector("#mclav");
+  if (k) {
+    k.innerHTML = `<div>${[..."1234567890"].map(c => `<button data-c="${c}">${c}</button>`).join("")}</div>
+      <div><button class="moyen" data-c=".">,</button><button class="moyen" data-c="EFF">⌫</button><button class="moyen" data-c="VIDER">Vider</button></div>`;
+    k.querySelectorAll("[data-c]").forEach(b => b.onclick = () => {
+      const c = b.dataset.c;
+      champ.value = c === "EFF" ? champ.value.slice(0, -1) : c === "VIDER" ? "" :
+        c === "." && champ.value.includes(".") ? champ.value : (champ.value + c).slice(0, 8);
+      dessiner();
+    });
+  }
+  f.querySelector("#mnoter").onclick = () => {
+    const v = volts(), l = lecture; if (!v || !forme(l)[1]) return;
+    const dbu = versDBu(v);
+    points.push({niveau: R.niveau, freq: R.freq, volts: v, dbu, lu: l.lu, sortie: dbu - R.niveau, entree: dbu - l.lu});
+    champ.value = ""; dessiner();
+    message("Point noté. Débranchez de l'entrée, changez le niveau et recommencez", true);
+  };
+  f.querySelector("#meff").onclick = () => { points = []; dessiner(); };
+  f.querySelector("#mappl").onclick = async () => {
+    const val = Math.round(points.reduce((s, p) => s + p.entree, 0) / points.length * 10) / 10;
+    if (await action("/api/calibration", {valeur: val})) {
+      P.INPUT_DBU = val; message(`Calibration d'entrée : ${val} dBu`, true); dessiner(); maj(true);
+    }
+  };
+  dessiner();
+}
+
 $("statBtn").onclick = feuilleSysteme;
 
 /* ---------- Envoi de modèles ---------- */
