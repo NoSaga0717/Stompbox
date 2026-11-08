@@ -14,6 +14,7 @@ des réglages /etc/tete-nam.conf, utilisées par web.py.
 """
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -81,6 +82,8 @@ def reglages(c=None):
         "MIDI_UART": c.get("MIDI_UART", "") if c.get("MIDI_UART", "").startswith("/dev/") else "",
         "VEILLE": int(nombre(c.get("VEILLE"), VEILLE_DEFAUT, 0, 600)),
         "VEILLE_STYLE": "spectre" if c.get("VEILLE_STYLE") == "spectre" else "onde",
+        "T3K_CLE": c.get("T3K_CLE", "") if re.fullmatch(r"t3k_pub_[\w\-]{4,200}", c.get("T3K_CLE", "")) else "",
+        "T3K_RECHERCHE": "non" if c.get("T3K_RECHERCHE") == "non" else "oui",
     }
 
 
@@ -137,6 +140,16 @@ VEILLE={VEILLE}
 # Dessin du son pendant la veille : onde (vagues dorées) ou spectre (graves à
 # gauche, aigus à droite)
 VEILLE_STYLE={VEILLE_STYLE}
+
+# TONE3000 (chercher et télécharger des modèles NAM depuis la tête, page
+# Système -> TONE3000). Clé de l'application : t3k_pub_... créée sur
+# tone3000.com (Settings -> API Keys). Ce n'est pas un mot de passe, mais
+# ne mettez JAMAIS ici la clé secrète t3k_cs_...
+T3K_CLE={T3K_CLE}
+# Recherche texte dans tout le catalogue : oui ou non. Permise par TONE3000
+# pendant le développement ; une tête distribuée sans accord commercial
+# avec TONE3000 doit la couper (non).
+T3K_RECHERCHE={T3K_RECHERCHE}
 """
 
 

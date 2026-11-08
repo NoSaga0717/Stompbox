@@ -311,6 +311,150 @@
     return {ok: true};
   }
 
+  // --- TONE3000, bibliothèque et cartes son simulés (catalogue fictif) ------------
+  const GEARS_DEMO = ["amp", "amp-cab", "pedal"];
+  const TONES_DEMO = ["Ampli britannique 1987", "Ampli américain clean", "Lead californien", "Combo vintage 1965",
+    "Overdrive vert", "Haut-gain moderne", "Boutique dumble-style", "Fuzz des années 70", "Tête britannique 800",
+    "Crunch texan", "Clean jazz", "Ampli à transistors 1982"].map((titre, i) => ({
+      id: 101 + i, titre, gear: GEARS_DEMO[i % 3], format: "nam", image: "", createur: ["Studio Démo", "Capteur Fou", "NAM Lab"][i % 3],
+      pseudo: "demo" + (i % 3), avatar: "", verifie: i % 3 === 0, a2: 2 + (i % 3), makes: [["Britannique", "Américain", "Boutique"][i % 3]],
+      tags: [["crunch", "clean", "lead"][i % 3]], telechargements: 1000 - i * 50, url: "https://www.tone3000.com",
+      description: "Tone fictif de la démo : sur la vraie tête, la fiche vient de TONE3000.", licence: "t3k"}));
+  const modelesDemo = t => ["Clean", "Crunch", "Lead", "Gain max"].slice(0, t.a2).map((nom, k) => ({id: t.id * 10 + k, nom, taille: "standard"}));
+  s.bib = s.bib || {etiquettes: ["clean", "edge", "crunch", "lead"], fiches: {}};
+  s.t3kFichiers = s.t3kFichiers || [];
+  s.t3k = s.t3k || {connecte: false};
+  const nam = () => CFG.types.NAM.params.find(p => p.type === "fichier");
+  const ajouterModele = f => {
+    if (!CFG.modeles.includes(f)) CFG.modeles.push(f);
+    const p = nam(); if (p && !p.valeurs.includes(f)) p.valeurs.push(f);
+  };
+  s.t3kFichiers.forEach(ajouterModele);
+  let t3kRev = 0, bibRev = 0, connexion = null, tache = null, essai = null;
+  const fichierDe = mid => Object.keys(s.bib.fiches).find(f => s.bib.fiches[f].t3k && s.bib.fiches[f].t3k.model_id === mid && CFG.modeles.includes(f)) || null;
+  const fiche = f => (s.bib.fiches[f] = s.bib.fiches[f] || {etiquettes: [], favori: false, nom: "", source: "fichier"});
+  function garderModele(t, m, etiquettes) {
+    const deja = fichierDe(m.id); if (deja) return deja;
+    const f = (t.titre + "-" + m.nom).normalize("NFD").replace(/[^\w-]+/g, "_");
+    ajouterModele(f); s.t3kFichiers.push(f);
+    Object.assign(fiche(f), {source: "tone3000", t3k: {tone_id: t.id, model_id: m.id, tone: t.titre, modele: m.nom, createur: t.createur,
+      gear: t.gear, makes: t.makes, tags: t.tags, image: "", taille: m.taille, licence: "t3k", url: t.url}});
+    etiquettes.forEach(e => { if (!fiche(f).etiquettes.includes(e)) fiche(f).etiquettes.push(e); });
+    bibRev++; sauver(); return f;
+  }
+  const nomT3k = t => t.modele ? `${t.tone} · ${t.modele}` : t.tone;
+  lectures["/api/bibliotheque"] = () => ({ok: true, etiquettes: s.bib.etiquettes, rev: bibRev,
+    essai: essai && {bloc: essai.bloc, fichier: essai.fichier, nom: essai.nom, tone: essai.tone},
+    modeles: CFG.modeles.filter(f => !f.startsWith("_essai-")).map(f => {
+      const e = s.bib.fiches[f] || {}, t = e.t3k || null;
+      return {fichier: f, nom: e.nom || (t ? nomT3k(t) : f), renomme: !!e.nom, etiquettes: e.etiquettes || [],
+              favori: !!e.favori, source: e.source || "fichier", date: "", t3k: t};
+    })});
+  ecritures["/api/bibliotheque"] = d => {
+    if (d.action === "nouvelle_etiquette") { if (!s.bib.etiquettes.includes(d.nom)) s.bib.etiquettes.push(d.nom); }
+    else if (d.action === "retirer_etiquette") s.bib.etiquettes = s.bib.etiquettes.filter(e => e !== d.nom);
+    else if (d.action === "etiqueter") {
+      const l = [...new Set(d.etiquettes.map(e => String(e).trim().toLowerCase()).filter(Boolean))];
+      l.forEach(e => { if (!s.bib.etiquettes.includes(e)) s.bib.etiquettes.push(e); });
+      fiche(d.fichier).etiquettes = l;
+    } else if (d.action === "favori") fiche(d.fichier).favori = !!d.favori;
+    else if (d.action === "renommer") fiche(d.fichier).nom = String(d.nom || "").trim();
+    else if (d.action === "utilisation") return {ok: true, chaine: s.chaine.filter(b => b.valeurs.Model === d.fichier).map(b => b.id),
+      presets: noms().filter(n => s.presets[n].some(b => b.valeurs && b.valeurs.Model === d.fichier))};
+    else if (d.action === "supprimer") {
+      if (s.chaine.some(b => b.valeurs.Model === d.fichier)) throw new Error("Ce modèle est dans la chaîne en cours : changez-le d'abord");
+      CFG.modeles.splice(CFG.modeles.indexOf(d.fichier), 1); const p = nam(); if (p) p.valeurs = p.valeurs.filter(x => x !== d.fichier);
+      s.t3kFichiers = s.t3kFichiers.filter(x => x !== d.fichier); delete s.bib.fiches[d.fichier]; CFG.cfg += "x";
+    } else throw new Error("Action inconnue");
+    bibRev++; sauver(); return {ok: true};
+  };
+  lectures["/api/tone3000"] = () => {
+    if (connexion && connexion.etat === "attente" && Date.now() > connexion.t + 6000) {   // la démo valide toute seule
+      connexion.etat = "ok"; s.t3k = {connecte: true}; t3kRev++; sauver();
+    }
+    return {ok: true, cle: true, recherche: s.t3kRecherche !== false, connecte: !!s.t3k.connecte,
+      utilisateur: s.t3k.connecte ? {username: "demo", nom: "Compte de démo", avatar: ""} : null,
+      connexion: connexion && {etat: connexion.etat, code: "DEMO-2026", url: "https://www.tone3000.com/activate",
+        url_complete: "https://www.tone3000.com/activate", message: "", reste: Math.max(0, 600 - Math.round((Date.now() - connexion.t) / 1000))},
+      tache: tache && Object.assign({}, tache), essai: essai && {bloc: essai.bloc, fichier: essai.fichier, nom: essai.nom, tone: essai.tone},
+      choix: null, rev: t3kRev};
+  };
+  ecritures["/api/tone3000"] = d => {
+    const tone = id => { const t = TONES_DEMO.find(x => x.id === +id); if (!t) throw new Error("Tone introuvable"); return t; };
+    switch (d.action) {
+      case "connecter": connexion = {etat: "attente", t: Date.now()}; break;
+      case "annuler": connexion = null; break;
+      case "deconnecter": s.t3k = {connecte: false}; connexion = null; sauver(); break;
+      case "recherche": s.t3kRecherche = !!d.actif; sauver(); break;
+      case "cle": break;
+      case "liste": {
+        const mots = String(d.texte || "").toLowerCase().split(/\s+/).filter(Boolean);
+        let l = TONES_DEMO.filter(t => (!d.gear || t.gear === d.gear) && mots.every(m => (t.titre + " " + t.createur + " " + t.tags).toLowerCase().includes(m)));
+        if (d.quoi === "favorited") l = l.filter((t, i) => i % 4 === 0);
+        if (d.quoi === "downloaded") l = l.filter(t => modelesDemo(t).some(m => fichierDe(m.id)));
+        if (d.quoi === "created") l = [];
+        if (d.quoi === "latest") l = l.slice().reverse();
+        return {ok: true, tones: l.map(t => Object.assign({}, t, {chez_moi: modelesDemo(t).filter(m => fichierDe(m.id)).length})),
+                page: 1, pages: 1, total: l.length, masques: 0};
+      }
+      case "tone": { const t = tone(d.id); return {ok: true, tone: t, modeles: modelesDemo(t).map(m => Object.assign({fichier: fichierDe(m.id)}, m))}; }
+      case "telecharger": {
+        const t = tone(d.tone_id), choisis = modelesDemo(t).filter(m => d.modeles.includes(m.id));
+        if (!choisis.length) throw new Error("Choisissez au moins un modèle");
+        tache = {tone_id: t.id, titre: t.titre, total: choisis.length, fait: 0, deja: 0, en_cours: choisis[0].nom, erreurs: [], fichiers: [], fini: false};
+        const pas = () => {
+          const m = choisis[tache.fait]; tache.fichiers.push(garderModele(t, m, d.etiquettes || [])); tache.fait++;
+          tache.en_cours = choisis[tache.fait] ? choisis[tache.fait].nom : ""; tache.fini = tache.fait >= tache.total;
+          CFG.cfg += "x"; t3kRev++; if (!tache.fini) setTimeout(pas, 700);
+        };
+        setTimeout(pas, 700); break;
+      }
+      case "stop": break;
+      case "essayer": {
+        const t = tone(d.tone_id), m = modelesDemo(t).find(x => x.id === +d.model_id);
+        let b = s.chaine.find(x => x.id === d.bloc && x.type === "NAM") || s.chaine.find(x => x.type === "NAM");
+        if (!b) { ecritures["/api/ajouter"]({type: "NAM", apres: s.chaine.length ? s.chaine[s.chaine.length - 1].id : null}); b = s.chaine.find(x => x.type === "NAM"); }
+        const deja = fichierDe(m.id);
+        if (deja) { b.valeurs.Model = deja; change(); return {ok: true, bloc: b.id, deja}; }
+        if (essai) ecritures["/api/tone3000"]({action: "abandonner"});
+        const f = "_essai-" + m.id; ajouterModele(f);
+        essai = {bloc: b.id, ancien: b.valeurs.Model, fichier: f, nom: m.nom, tone: t.titre, t, m};
+        b.valeurs.Model = f; CFG.cfg += "x"; change(); t3kRev++; return {ok: true, bloc: b.id};
+      }
+      case "garder": {
+        if (!essai) throw new Error("Aucun essai en cours");
+        const f = garderModele(essai.t, essai.m, d.etiquettes || []);
+        s.chaine.forEach(b => { if (b.valeurs.Model === essai.fichier) b.valeurs.Model = f; });
+        essai = null; CFG.cfg += "x"; change(); t3kRev++; return {ok: true, fichier: f};
+      }
+      case "abandonner": {
+        if (essai) s.chaine.forEach(b => { if (b.valeurs.Model === essai.fichier) b.valeurs.Model = essai.ancien; });
+        essai = null; change(); break;
+      }
+      case "catalogue": return {ok: true, url: "https://www.tone3000.com"};
+      case "vu": break;
+      default: throw new Error("Action inconnue");
+    }
+    t3kRev++; return {ok: true};
+  };
+  lectures["/api/cartes"] = () => ({ok: true, courante: s.carte || "M4", cartes: [{id: "M4", nom: "MOTU M4"},
+    {id: "UMC1820", nom: "BEHRINGER UMC1820"}, {id: "aucune", nom: "Aucune (essai sans son)"}]});
+  ecritures["/api/carte"] = d => {
+    s.cartesCal = s.cartesCal || {M4: 16}; s.cartesCal[s.carte || "M4"] = s.cal;
+    s.carte = d.id; const connue = d.id in s.cartesCal; if (connue) s.cal = s.cartesCal[d.id];
+    rev++; sauver(); return {ok: true, calibration: s.cal, connue};
+  };
+  const etatAvant = lectures["/api/etat"];
+  lectures["/api/etat"] = () => Object.assign(etatAvant(), {bib: bibRev, t3k: t3kRev});
+  const toutAvant = lectures["/api/tout"];
+  lectures["/api/tout"] = () => { const t = toutAvant(); t.reglages.CARD = s.carte || "M4"; return t; };
+  const ajoutAvant = ecritures["/api/ajouter"];
+  ecritures["/api/ajouter"] = d => {
+    const r = ajoutAvant(d);
+    if (d.modele) { s.chaine.find(b => b.id === r.id).valeurs.Model = String(d.modele); change(); }
+    return r;
+  };
+
   // Petit délai, comme une vraie tête en Wi-Fi
   const attendre = ms => new Promise(r => setTimeout(r, ms));
   window.teteTransport = async function (chemin, corps) {

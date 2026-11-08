@@ -80,6 +80,32 @@ scp *.nam alex@tetenam.local:nam/
 
 Les modèles sont dans `~/nam` sur le Pi. Un modèle copié à la main apparaît dans la liste au prochain choix de modèle.
 
+Le plus simple reste de les prendre directement sur **TONE3000**, depuis la tête (voir plus bas).
+
+### TONE3000 : chercher et télécharger des modèles depuis la tête
+
+Système → **TONE3000…** (ou le bouton **Trouver sur TONE3000** quand on choisit un modèle). La tête doit être sur Internet (Wi-Fi).
+
+1. **Une seule fois, la clé de l'application** : sur tone3000.com, *Settings → API Keys*, créez une clé ; copiez la clé **publique** `t3k_pub_…` dans Système → **Clé…** (plus simple depuis la page web sur un ordinateur). Ce n'est pas un mot de passe. Ne mettez jamais la clé secrète `t3k_cs_…`.
+2. **Une seule fois, connecter la tête à votre compte** : **Connecter la tête** affiche un QR code et un code `XXXX-XXXX`. Scannez avec le téléphone (ou ouvrez tone3000.com/activate), vérifiez le code, validez : la tête se connecte toute seule et le reste (jetons gardés dans `~/tete-nam/tone3000/`).
+3. **Chercher** : onglets **Recherche** (texte libre sur tout le catalogue, avec le clavier de l'écran puis **OK**), **Favoris** (mettez des tones en favori sur tone3000.com depuis le téléphone ou l'ordinateur : ils apparaissent ici), **Téléchargés**, **Tendances**, **Nouveautés**, **Mes tones**. Filtres Ampli / Ampli + baffle / Pédale / Rack. Seuls les tones qui ont des modèles **NAM A2** sont montrés.
+4. **Un tone** : photo, créateur, marques, licence et la liste de ses modèles A2 (souvent plusieurs : canaux, niveaux de gain).
+   - **Essayer** : le modèle est chargé tout de suite dans le bloc NAM sélectionné (ou le premier NAM de la chaîne), sans être gardé. Un bandeau propose **Garder** (il rejoint la bibliothèque) ou **Annuler l'essai** (l'ancien modèle revient). Enregistrer un preset pendant un essai garde le modèle ; changer de preset l'abandonne.
+   - **Télécharger** : cochez les modèles voulus (ou **Tout télécharger**), choisissez les étiquettes à leur mettre, puis **Télécharger**. Les modèles déjà sur la tête sont marqués ✓ et ont un bouton **Charger**.
+5. **Tout le catalogue sur le téléphone** : un QR code ouvre la page TONE3000 complète sur le téléphone (même Wi-Fi que la tête) ; le tone choisi s'ouvre sur l'écran de la tête. Pas encore essayé avec le vrai TONE3000.
+
+**Conditions de TONE3000** : tout est gratuit pendant le développement. Pour une tête distribuée sans accord commercial avec TONE3000, seules les listes (favoris, téléchargés, tendances…) et la page catalogue sont permises : la **recherche texte** se coupe dans Système (`T3K_RECHERCHE=non`). Une tête vendue demande un accord avec TONE3000 (support@tone3000.com) avant d'être vendue ou annoncée. Le logo TONE3000 doit rester affiché sur les listes de tones (règles de l'API).
+
+### Bibliothèque : étiquettes et recherche des modèles
+
+Toucher le nom du modèle d'un bloc NAM, ou ajouter un bloc NAM (**+** → NAM), ouvre la **bibliothèque** :
+
+- **recherche** sur le nom, le tone, le créateur, la marque, les étiquettes TONE3000 et les vôtres ;
+- **filtres** : ★ favoris, vos étiquettes (**clean**, **edge**, **crunch**, **lead** au départ, et toutes celles que vous ajoutez), type d'appareil, **Mes fichiers** (modèles envoyés à la main) ;
+- **✎** ouvre la fiche du modèle : étiquettes (un modèle peut en avoir plusieurs), favori, **Renommer** (nom affiché seulement), **Supprimer de la tête** (prévient si des presets l'utilisent).
+
+Le classement est rangé dans `~/tete-nam/bibliotheque.json`. Les fichiers restent tous dans `~/nam` sous le même nom : reclasser ou renommer ne casse aucun preset.
+
 ## 5. L'interface
 
 - **En haut** : numéro et nom du preset, ◀ ▶ pour passer au précédent ou au suivant, **Enregistrer**, l'accordeur (♪) et la charge DSP (toucher pour les détails et les réglages système).
@@ -95,7 +121,9 @@ On peut mettre autant de blocs NAM et d'effets qu'on veut, dans n'importe quel o
 
 **Presets** : toucher le nom du preset ouvre la liste (charger, supprimer, nouveau). **Enregistrer** écrase le preset actuel ou en crée un nouveau. Les modifications non enregistrées sont gardées même après une coupure de courant : la tête redémarre comme vous l'avez laissée, avec « modifié » affiché.
 
-**Système** (toucher la zone DSP) : courbe de charge, xruns, température, taille du buffer JACK (changer relance l'audio, 5 secondes de silence), calibration d'entrée (16 dBu pour la M4), volume général, veille de l'écran et Wi-Fi.
+**Système** (toucher la zone DSP) : courbe de charge, xruns, température, taille du buffer JACK (changer relance l'audio, 5 secondes de silence), calibration d'entrée (16 dBu pour la M4), volume général, veille de l'écran, carte son, Wi-Fi et TONE3000.
+
+**Carte son** (Système) : les cartes branchées sont listées (par exemple **MOTU M4** et **BEHRINGER UMC1820**) ; en toucher une relance l'audio sur cette carte, sans éditer de fichier. Chaque carte garde ses propres réglages (entrée, sorties, calibration) dans `~/tete-nam/cartes.json` : en revenant sur une carte, on retrouve sa calibration. La première fois sur une nouvelle carte, vérifiez sa calibration d'entrée.
 
 **Veille de l'écran** : après 7 secondes sans toucher l'écran de la tête, il n'affiche plus que le logo et une onde dorée qui suit le son en sortie. Un changement de preset (au pied) affiche son nom 3 secondes à la place de l'onde. Le premier toucher réveille l'écran sans appuyer sur rien. Délai réglable dans Système (Jamais, 7 s, 15 s, 30 s, 1 min), ainsi que le dessin : **Onde** (vagues dorées : grandes vagues pour les graves, petites ondulations pour les aigus) ou **Spectre** (graves à gauche, aigus à droite, 24 tiers d'octave de 63 Hz à 12,7 kHz, une ligne qui monte depuis le bas). La page dans un navigateur et l'appli ne se mettent pas en veille.
 
@@ -172,10 +200,12 @@ La chaîne et les presets ne sont pas dans ce fichier : ils sont dans `~/tete-na
 | `ECRAN` | `oui` ou `non` : interface sur l'écran de la tête |
 | `ECRAN_ROTATION` | 0, 90, 180 ou 270 (écran monté à l'envers : 180) |
 | `MIDI_UART` | Port série de l'entrée MIDI DIN (vide = aucun ; l'USB et la M4 sont toujours lus) |
+| `T3K_CLE` | Clé publique de l'application TONE3000 (`t3k_pub_…`), réglable depuis Système |
+| `T3K_RECHERCHE` | `oui` ou `non` : recherche texte dans tout le catalogue TONE3000 |
 
 Après une modification à la main : `sudo systemctl restart tete-nam` (audio) ou `sudo systemctl restart tete-nam-ecran` (écran).
 
-**Essayer sans la tête** : `python3 demo/fabriquer.py` fabrique dans `demo/sortie/` une démo de cette interface, branchée sur une tête simulée (pas de son, presets gardés dans le navigateur, envoi de modèles désactivé). Ouvrir `demo/sortie/index.html` via un petit serveur web (`python3 -m http.server` dans ce dossier) : formats écran 800×480, téléphone et PC.
+**Essayer sans la tête** : `python3 demo/fabriquer.py` fabrique dans `demo/sortie/` une démo de cette interface, branchée sur une tête simulée (pas de son, presets gardés dans le navigateur, envoi de modèles désactivé, TONE3000 simulé avec un catalogue fictif). Ouvrir `demo/sortie/index.html` via un petit serveur web (`python3 -m http.server` dans ce dossier) : formats écran 800×480, téléphone et PC.
 
 ## Comment c'est organisé
 
@@ -186,6 +216,8 @@ Après une modification à la main : `sudo systemctl restart tete-nam` (audio) o
 | `tete-nam-ecran` | `ecran.sh` | Chromium en plein écran sur l'écran tactile (via `cage`) |
 | `tete-nam-ble` | `ble.py` | Pont Bluetooth vers la page web, pour l'appli |
 | `tete-nam-wifi` | `wifi-secours.sh` | Réseau Wi-Fi de secours |
+
+`web.py` s'appuie sur `tone3000.py` (client de l'API TONE3000 : connexion par code, listes, recherche, téléchargements) et `bibliotheque.py` (étiquettes et fiches des modèles). Le logo TONE3000 (`tone3000-logo.svg`, `tone3000-marque.svg`) vient du plugin officiel TONE3000 (licence MIT) ; c'est une marque de TONE3000, utilisée comme leurs règles le demandent.
 
 Fichiers installés dans `/opt/tete-nam`. Le moteur travaille dans `~/tete-nam` (presets, lien `NAM` vers `~/nam`). La disposition des chaînes du moteur est dans `chaine-init.txt` : accordeur en entrée, la chaîne `Main` (celle de l'interface et des presets), volume général en sortie.
 

@@ -294,6 +294,65 @@ header{background:linear-gradient(180deg,#14120f,var(--barre));border-bottom:1px
 #vnum{color:var(--accent);font-size:16px;letter-spacing:.3em}
 #vnom{color:var(--texte);font-size:34px;font-weight:300;letter-spacing:.22em;text-transform:uppercase;text-align:center;max-width:100%;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ===== Bibliothèque des modèles et TONE3000 ===== */
+.bhaut{display:flex;gap:8px;align-items:center}
+.bhaut .champ{flex:1;font-size:16px;padding:9px 12px}
+.puces{display:flex;gap:6px;overflow-x:auto;padding:8px 0 4px;scrollbar-width:none;touch-action:pan-x}
+.puces::-webkit-scrollbar{display:none}
+.puce{flex:0 0 auto;padding:6px 11px;font-size:12px;border-radius:16px;text-transform:none;letter-spacing:.04em;color:var(--doux)}
+.puce.on{border-color:var(--accent);color:var(--accent);background:rgba(214,172,90,.1)}
+.puce.sep{margin-left:8px}
+.clavier[hidden]{display:none!important}
+.clavier.compact{margin-top:6px;gap:4px}
+.clavier.compact div{gap:4px}
+.clavier.compact button{height:38px;font-size:16px}
+.bliste{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.bligne{display:flex;gap:6px;align-items:stretch}
+.bchoix{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;padding:6px 10px;text-transform:none;letter-spacing:0}
+.bchoix.courant{border-color:var(--accent)}
+.bimg,.timg,.fimg{flex:0 0 auto;width:44px;height:44px;border-radius:6px;background:var(--carte2);display:flex;align-items:center;justify-content:center;
+  color:var(--accent);font-size:18px;overflow:hidden;position:relative}
+.bimg img,.timg img,.fimg img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.btxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.btxt b,.ttxt b{font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btxt small,.ttxt small{color:var(--doux);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.betq{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:40%}
+.betq i{font-style:normal;font-size:11px;color:var(--accent);border:1px solid rgba(214,172,90,.4);border-radius:10px;padding:1px 7px}
+.bedit{flex:0 0 52px;padding:0;font-size:17px}
+.fiche{display:flex;gap:14px;align-items:flex-start}
+.fiche .fimg{width:96px;height:96px;font-size:34px}
+.fnom{font-size:19px;color:var(--texte);margin-bottom:4px}
+.doux{color:var(--doux);font-size:13px}
+.t3logo{display:inline-flex;align-items:center;background:#fff;border-radius:7px;padding:4px 8px;flex:0 0 auto}
+.t3logo img{height:16px;display:block}
+.t3logo.petit{padding:2px 5px;border-radius:5px}.t3logo.petit img{height:10px}
+.t3logo b{color:#00f;font-size:13px;letter-spacing:.08em}
+.t3tete{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+#t3ong{display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+#t3ong button{padding:6px 7px;font-size:11px;letter-spacing:.08em;white-space:nowrap;flex:0 0 auto}
+.t3compte{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--doux);font-size:12px;text-transform:none}
+.t3compte img{width:22px;height:22px;border-radius:50%}
+#t3etat:empty{display:none}
+#t3etat{margin:4px 0 6px;padding:8px 10px;border:1px solid var(--accent);border-radius:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px}
+#t3etat span{flex:1;min-width:180px}
+.tgrille{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px;margin-top:6px}
+.tcarte{display:flex;gap:10px;align-items:center;text-align:left;padding:6px 8px;text-transform:none;letter-spacing:0;min-width:0}
+.timg{width:58px;height:58px}
+.ttxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tcre{display:flex;align-items:center;gap:5px}
+.tcre img{width:16px;height:16px;border-radius:50%}
+.tchez{color:var(--accent)!important}
+.t3qr{display:flex;gap:18px;align-items:center;justify-content:center;flex-wrap:wrap;margin:6px 0}
+.t3qr svg{border-radius:8px;flex:0 0 auto}
+.t3code{font-size:34px;letter-spacing:.18em;color:var(--or-clair,#f0d58f);margin:6px 0}
+.t3etapes{max-width:330px;font-size:14px;line-height:1.5}
+.mligne{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--trait)}
+.mligne label{flex:1;display:flex;align-items:center;gap:10px;min-width:0;font-size:15px}
+.mligne label span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mligne input{width:22px;height:22px;accent-color:var(--accent);flex:0 0 auto}
+.mligne small{color:var(--doux)}
+#feuille a{color:var(--accent)}
+.tdesc{font-size:13px;color:var(--doux);margin-top:6px;max-height:3.9em;overflow:hidden}
 </style></head><body>
 <div id="demarrage" class="ouvert"><img src="/logo.png" alt="Tête NAM" onerror="this.style.display='none'"><div class="dbarre"><div></div></div><div class="dtxt">Démarrage du moteur audio…</div></div>
 <div id="bandeau"></div>
@@ -382,7 +441,7 @@ function nomBloc(b) {
 }
 function resume(b) {
   const c = cfgType(b.type); if (!c) return "";
-  if (b.type === "NAM") return valeur(b, "Model") || "aucun modèle";
+  if (b.type === "NAM") return nomAffiche(valeur(b, "Model")) || "aucun modèle";
   if (!b.actif) return "bypass";
   const p = c.params.find(p => !p.avance && p.type === "bouton");
   return p ? fmt(p, valeur(b, p.nom)) : "";
@@ -531,7 +590,7 @@ function dessinerPanneau() {
   const modele = c.params.find(q => q.type === "fichier");
   const listes = c.params.filter(q => q.type === "liste");
   let h = `<div id="ptete"><div id="ptitre">${echap(c.nom)}${b.id.includes("_") ? " " + echap(b.id.split("_")[1]) : ""}`;
-  if (modele) h += `<button class="mod" id="choixModele">${echap(valeur(b, modele.nom) || "Choisir un modèle…")} ▾</button>`;
+  if (modele) h += `<button class="mod" id="choixModele">${echap(nomAffiche(valeur(b, modele.nom)) || "Choisir un modèle…")} ▾</button>`;
   h += `</div>`;
   for (const q of listes) {
     h += `<span class="seg" data-liste="${echap(q.nom)}">` + q.valeurs.map((v, i) =>
@@ -801,24 +860,21 @@ function feuilleAjout() {
   const b = blocSel();
   const f = ouvrir(b ? `Ajouter après « ${nomBloc(b)} »` : "Ajouter un bloc", h);
   f.querySelectorAll("[data-t]").forEach(bt => bt.onclick = async () => {
-    fermer();
-    const r = await action("/api/ajouter", {type: bt.dataset.t, apres: sel});
-    if (r) { sel = r.id; await maj(true); }
+    const ajouter = async modele => {
+      fermer();
+      const r = await action("/api/ajouter", {type: bt.dataset.t, apres: sel, modele});
+      if (r) { sel = r.id; await maj(true); }
+    };
+    // Un NAM : on choisit d'abord son modèle dans la bibliothèque (avec la recherche)
+    if (bt.dataset.t === "NAM") return feuilleBibliotheque({titre: "Ajouter un NAM : choisir le modèle", choisir: ajouter});
+    ajouter();
   });
 }
 
 function feuilleModele(b, q) {
-  const liste = C.modeles;
-  let h = liste.length ? `<div class="liste">` + liste.map(m =>
-    `<div class="ligne"><button class="${m === valeur(b, q.nom) ? "courant" : ""}" data-m="${echap(m)}">${echap(m)}</button></div>`).join("") + `</div>` :
-    `<div class="videmsg">Aucun modèle .nam sur la tête.</div>`;
-  if (!ECRAN) h += `<div class="boutonsfin"><button id="menvoi">Envoyer des fichiers .nam…</button></div>`;
-  else h += `<div class="pied">Pour ajouter des modèles : depuis un téléphone ou un ordinateur, page de la tête ou appli, bouton « Envoyer des fichiers .nam ».</div>`;
-  const f = ouvrir("Modèle NAM", h);
-  f.querySelectorAll("[data-m]").forEach(bt => bt.onclick = () => {
-    fermer(); envoyerParam(b, q.nom, bt.dataset.m, true); dessinerChaine(); dessinerPanneau();
-  });
-  const env = f.querySelector("#menvoi"); if (env) env.onclick = envoyerFichiers;
+  feuilleBibliotheque({titre: `Modèle de ${nomBloc(b)}`, courant: valeur(b, q.nom), choisir: f => {
+    fermer(); envoyerParam(b, q.nom, f, true); dessinerChaine(); dessinerPanneau();
+  }});
 }
 
 function feuillePresets() {
@@ -899,7 +955,11 @@ async function feuilleSysteme() {
       `<button class="${v === +(r.VEILLE ?? 7) ? "prim" : ""}" data-veille="${v}">${t}</button>`).join("") +
     `<span style="flex:1"></span>` + [["onde", "Onde"], ["spectre", "Spectre"]].map(([v, t]) =>
       `<button class="${v === (r.VEILLE_STYLE || "onde") ? "prim" : ""}" data-style="${v}">${t}</button>`).join("") + `</div>`;
+  h += `<div class="etiq">Carte son · changer relance l'audio (quelques secondes de silence)</div><div class="rangs" id="ycartes"><span class="wetat">Lecture…</span></div>`;
   h += `<div class="etiq">Wi-Fi</div><div class="rangs"><span id="ywifi" class="wetat" style="flex:1 1 220px">…</span><button id="ywifibt">Réseaux Wi-Fi…</button></div>`;
+  h += `<div class="etiq">TONE3000 : chercher et télécharger des modèles NAM</div><div class="rangs"><span id="yt3k" class="wetat" style="flex:1 1 200px">…</span>
+    <button id="yt3kbt">TONE3000…</button><button id="ycle">Clé…</button></div>
+    <div class="rangs"><span class="wetat" style="flex:1 1 200px">Recherche texte dans tout le catalogue</span><span class="seg" id="yrech"><button data-r="1">Oui</button><button data-r="0">Non</button></span></div>`;
   h += `<div class="etiq">Pédalier</div><div class="rangs"><button id="ymidi">Réglages MIDI…</button></div>`;
   h += `<div class="pied" id="ypied">${r.RATE / 1000} kHz · carte ${echap(r.CARD)}</div>`;
   const f = ouvrir("Système", h);
@@ -932,6 +992,35 @@ async function feuilleSysteme() {
   const env = f.querySelector("#yenvoi"); if (env) env.onclick = envoyerFichiers;
   f.querySelector("#ymidi").onclick = feuilleMidi;
   f.querySelector("#ywifibt").onclick = feuilleWifi;
+  f.querySelector("#yt3kbt").onclick = () => feuilleT3K();
+  f.querySelector("#ycle").onclick = () => entrerCle(feuilleSysteme);
+  api("/api/tone3000").then(t => {
+    if (!$("yt3k")) return;
+    $("yt3k").innerHTML = !t.cle ? "Pas encore de clé d'application" : t.connecte ?
+      `Connecté à <b>${echap((t.utilisateur || {}).nom || (t.utilisateur || {}).username || "?")}</b>` : "Pas connecté";
+    f.querySelectorAll("[data-r]").forEach(b => {
+      b.classList.toggle("on", (b.dataset.r === "1") === !!t.recherche);
+      b.onclick = async () => {
+        if (await action("/api/tone3000", {action: "recherche", actif: b.dataset.r === "1"}))
+          f.querySelectorAll("[data-r]").forEach(x => x.classList.toggle("on", x === b));
+      };
+    });
+  }).catch(() => {});
+  api("/api/cartes").then(c => {
+    const z = $("ycartes"); if (!z || !c.cartes) return;
+    z.innerHTML = c.cartes.map(k => `<button class="${k.id === c.courante ? "prim" : ""}" data-carte="${echap(k.id)}" ${k.absente ? "disabled" : ""}>
+      ${echap(k.nom)}${k.absente ? " (débranchée)" : ""}</button>`).join("");
+    z.querySelectorAll("[data-carte]").forEach(b => b.onclick = () => {
+      const k = c.cartes.find(x => x.id === b.dataset.carte);
+      if (k.id === c.courante) return message(`Déjà sur ${k.nom}`, true);
+      confirmer(`Passer sur la carte son « ${k.nom} » ? L'audio coupe le temps du redémarrage.`, "Changer de carte", async () => {
+        const r = await action("/api/carte", {id: k.id});
+        if (r) message(`Carte « ${k.nom} »${k.id === "aucune" ? "" : r.connue ? ` · calibration ${r.calibration} dBu` :
+          ` · nouvelle carte : vérifiez la calibration d'entrée (${r.calibration} dBu)`}`, true);
+        maj(true);
+      });
+    });
+  }).catch(() => {});
   api("/api/wifi").then(w => { if ($("ywifi")) $("ywifi").innerHTML = texteWifi(w); }).catch(() => {});
   const rafr = async () => {
     try {
@@ -1162,7 +1251,7 @@ function dessinerSpectre(g, W, H) {
 function delaiVeille() { const d = T && T.reglages ? T.reglages.VEILLE : undefined; return d == null ? 7 : +d; }
 function peutDormir() {
   return E && E.moteur && !$("demarrage").classList.contains("ouvert") && !$("accord").classList.contains("ouvert") &&
-    !apprentissage && !occupe;
+    !apprentissage && !occupe && !t3Ouverte();       // pas de veille sur la fenêtre TONE3000 (QR code, essai)
 }
 ["pointerdown", "touchstart", "keydown", "wheel"].forEach(t =>
   document.addEventListener(t, () => { V.dernier = Date.now(); }, {capture: true, passive: true}));
@@ -1274,6 +1363,535 @@ function dessinerOnde(maintenant) {
   g.globalAlpha = 1; g.shadowBlur = 0;
 }
 
+/* ---------- QR code ---------- */
+/* QR code (octets, correction M, versions 1 à 20), d'après le générateur de
+   Project Nayuki (licence MIT, https://www.nayuki.io/page/qr-code-generator-library).
+   qrMatrice(texte) -> tableau de lignes de booléens (true = module sombre). */
+function qrMatrice(texte) {
+  const ECC = [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26];
+  const BLOCS = [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16];
+  const donnees = [...new TextEncoder().encode(texte)];
+  const brut = v => { let r = (16 * v + 128) * v + 64; if (v >= 2) { const n = (v / 7 | 0) + 2; r -= (25 * n - 10) * n - 55; if (v >= 7) r -= 36; } return r; };
+  const utiles = v => (brut(v) >> 3) - ECC[v] * BLOCS[v];
+  let v = 1;
+  while (4 + (v < 10 ? 8 : 16) + 8 * donnees.length > utiles(v) * 8) if (++v > 20) throw new Error("Texte trop long pour le QR code");
+  // Suite de bits : mode octet, longueur, données, fin, bourrage
+  const bits = [];
+  const ajout = (x, n) => { for (let i = n - 1; i >= 0; i--) bits.push((x >>> i) & 1); };
+  ajout(4, 4); ajout(donnees.length, v < 10 ? 8 : 16); donnees.forEach(o => ajout(o, 8));
+  const cap = utiles(v) * 8;
+  ajout(0, Math.min(4, cap - bits.length)); ajout(0, (8 - bits.length % 8) % 8);
+  for (let p = 0xEC; bits.length < cap; p ^= 0xEC ^ 0x11) ajout(p, 8);
+  const mots = []; for (let i = 0; i < bits.length; i += 8) mots.push(bits.slice(i, i + 8).reduce((a, b) => a << 1 | b, 0));
+  // Reed-Solomon et entrelacement
+  const mul = (x, y) => { let z = 0; for (let i = 7; i >= 0; i--) { z = (z << 1) ^ ((z >>> 7) * 0x11D); z ^= ((y >>> i) & 1) * x; } return z; };
+  const deg = ECC[v], div = new Array(deg).fill(0); div[deg - 1] = 1;
+  for (let i = 0, r = 1; i < deg; i++) { for (let j = 0; j < deg; j++) { div[j] = mul(div[j], r); if (j + 1 < deg) div[j] ^= div[j + 1]; } r = mul(r, 2); }
+  const reste = d => { const r = new Array(deg).fill(0); for (const b of d) { const f = b ^ r.shift(); r.push(0); div.forEach((c, i) => r[i] ^= mul(c, f)); } return r; };
+  const nb = BLOCS[v], tot = brut(v) >> 3, courts = nb - tot % nb, lc = (tot / nb) | 0, blocs = [];
+  for (let i = 0, k = 0; i < nb; i++) {
+    const d = mots.slice(k, k + lc - deg + (i < courts ? 0 : 1)); k += d.length;
+    const e = reste(d); if (i < courts) d.push(0); blocs.push(d.concat(e));
+  }
+  const tout = [];
+  for (let i = 0; i < blocs[0].length; i++) blocs.forEach((b, j) => { if (i !== lc - deg || j >= courts) tout.push(b[i]); });
+  // Motifs fixes
+  const n = v * 4 + 17, m = [...Array(n)].map(() => Array(n).fill(false)), fx = [...Array(n)].map(() => Array(n).fill(false));
+  const fixe = (x, y, s) => { m[y][x] = s; fx[y][x] = true; };
+  for (let i = 0; i < n; i++) { fixe(6, i, i % 2 === 0); fixe(i, 6, i % 2 === 0); }
+  const reperes = (x, y) => { for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) {
+    const d = Math.max(Math.abs(dx), Math.abs(dy)), xx = x + dx, yy = y + dy;
+    if (xx >= 0 && xx < n && yy >= 0 && yy < n) fixe(xx, yy, d !== 2 && d !== 4); } };
+  reperes(3, 3); reperes(n - 4, 3); reperes(3, n - 4);
+  if (v > 1) {
+    const na = (v / 7 | 0) + 2, pas = ((v * 4 + na * 2 + 1) / (na * 2 - 2) | 0) * 2, pos = [6];
+    for (let i = 0, p = n - 7; i < na - 1; i++, p -= pas) pos.splice(1, 0, p);
+    pos.forEach((a, i) => pos.forEach((b, j) => {
+      if ((i === 0 && j === 0) || (i === 0 && j === na - 1) || (i === na - 1 && j === 0)) return;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) fixe(a + dx, b + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+    }));
+  }
+  const format = masque => {
+    const d = 0 << 3 | masque; let r = d;            // correction M = 0
+    for (let i = 0; i < 10; i++) r = (r << 1) ^ ((r >>> 9) * 0x537);
+    const b = (d << 10 | r) ^ 0x5412, bit = i => ((b >>> i) & 1) === 1;
+    for (let i = 0; i <= 5; i++) fixe(8, i, bit(i));
+    fixe(8, 7, bit(6)); fixe(8, 8, bit(7)); fixe(7, 8, bit(8));
+    for (let i = 9; i < 15; i++) fixe(14 - i, 8, bit(i));
+    for (let i = 0; i < 8; i++) fixe(n - 1 - i, 8, bit(i));
+    for (let i = 8; i < 15; i++) fixe(8, n - 15 + i, bit(i));
+    fixe(8, n - 8, true);
+  };
+  format(0);
+  if (v >= 7) {
+    let r = v; for (let i = 0; i < 12; i++) r = (r << 1) ^ ((r >>> 11) * 0x1F25);
+    const b = v << 12 | r;
+    for (let i = 0; i < 18; i++) { const s = ((b >>> i) & 1) === 1, a = n - 11 + i % 3, c = i / 3 | 0; fixe(a, c, s); fixe(c, a, s); }
+  }
+  // Données en zigzag
+  let k = 0;
+  for (let droite = n - 1; droite >= 1; droite -= 2) {
+    if (droite === 6) droite = 5;
+    for (let vert = 0; vert < n; vert++) for (let j = 0; j < 2; j++) {
+      const x = droite - j, y = ((droite + 1) & 2) === 0 ? n - 1 - vert : vert;
+      if (!fx[y][x] && k < tout.length * 8) { m[y][x] = ((tout[k >> 3] >>> (7 - (k & 7))) & 1) === 1; k++; }
+    }
+  }
+  // Masque : le moins pénalisé des 8
+  const inverse = (q, x, y) => [(x + y) % 2, y % 2, x % 3, (x + y) % 3, ((x / 3 | 0) + (y / 2 | 0)) % 2,
+    x * y % 2 + x * y % 3, (x * y % 2 + x * y % 3) % 2, ((x + y) % 2 + x * y % 3) % 2][q] === 0;
+  const masquer = q => { for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (!fx[y][x] && inverse(q, x, y)) m[y][x] = !m[y][x]; };
+  const penalite = () => {
+    let r = 0;
+    const ligne = get => {
+      for (let a = 0; a < n; a++) {
+        let coul = false, long = 0; const h = [0, 0, 0, 0, 0, 0, 0];
+        const hist = l => { if (h[0] === 0) l += n; h.pop(); h.unshift(l); };
+        const motif = () => { const c = h[1], cur = c > 0 && h[2] === c && h[3] === c * 3 && h[4] === c && h[5] === c;
+          return (cur && h[0] >= c * 4 && h[6] >= c ? 1 : 0) + (cur && h[6] >= c * 4 && h[0] >= c ? 1 : 0); };
+        for (let b = 0; b < n; b++) {
+          if (get(a, b) === coul) { long++; if (long === 5) r += 3; else if (long > 5) r++; }
+          else { hist(long); if (!coul) r += motif() * 40; coul = get(a, b); long = 1; }
+        }
+        if (coul) { hist(long); long = 0; }
+        long += n; hist(long); r += motif() * 40;
+      }
+    };
+    ligne((a, b) => m[a][b]); ligne((a, b) => m[b][a]);
+    let sombres = 0;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+      if (m[y][x]) sombres++;
+      if (y < n - 1 && x < n - 1 && m[y][x] === m[y][x + 1] && m[y][x] === m[y + 1][x] && m[y][x] === m[y + 1][x + 1]) r += 3;
+    }
+    const t = n * n; r += (Math.ceil(Math.abs(sombres * 20 - t * 10) / t) - 1) * 10;
+    return r;
+  };
+  let meilleur = 0, min = Infinity;
+  for (let q = 0; q < 8; q++) { masquer(q); format(q); const p = penalite(); if (p < min) { min = p; meilleur = q; } masquer(q); }
+  masquer(meilleur); format(meilleur);
+  return m;
+}
+/* Le QR code en SVG (marge de 4 modules, fond blanc pour la lecture) */
+function qrSvg(texte, taille) {
+  const m = qrMatrice(texte), n = m.length, c = n + 8;
+  let d = "";
+  m.forEach((l, y) => l.forEach((s, x) => { if (s) d += `M${x + 4},${y + 4}h1v1h-1z`; }));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${c} ${c}" width="${taille}" height="${taille}" shape-rendering="crispEdges">` +
+    `<rect width="${c}" height="${c}" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+}
+
+/* ---------- Bibliothèque des modèles ----------
+   Tous les .nam de la tête, avec leurs étiquettes (clean, edge, crunch,
+   lead…), favoris et fiche TONE3000. Sert à choisir le modèle d'un bloc NAM
+   et à en ajouter un. Le classement ne touche pas aux fichiers. */
+let B = null, cleBib = "";
+const GEARS = {"amp": "Ampli", "amp-cab": "Ampli + baffle", "pedal": "Pédale", "outboard": "Rack",
+               "cab": "Baffle", "space": "Espace", "experimental": "Expérimental"};
+const plat = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+async function relireBib() { try { B = await api("/api/bibliotheque"); } catch (e) {} }
+function nomAffiche(f) {
+  if (!f) return "";
+  if (B && B.essai && B.essai.fichier === f) return "Essai · " + B.essai.nom;
+  if (f.startsWith("_essai-")) return "Essai TONE3000";
+  const m = B && B.modeles.find(x => x.fichier === f);
+  return m ? m.nom : f.replace(/_/g, " ");
+}
+const vignette = (url, ic) => `${ic || "▣"}${url ? `<img src="${echap(url)}" alt="" loading="lazy" onerror="this.remove()">` : ""}`;
+const logoT3K = petit => `<span class="t3logo${petit ? " petit" : ""}"><img src="tone3000-${petit ? "marque" : "logo"}.svg" alt="TONE3000"
+  onerror="this.replaceWith(Object.assign(document.createElement('b'),{textContent:'TONE3000'}))"></span>`;
+
+/* Clavier de l'écran pour une recherche : change(texte, fini) à chaque touche */
+function clavierRecherche(el, champ, change) {
+  const R = ["1234567890", "azertyuiop", "qsdfghjklm", "wxcvbn-'."];
+  el.innerHTML = R.map(r => `<div>${[...r].map(c => `<button data-c="${echap(c)}">${echap(c)}</button>`).join("")}</div>`).join("") +
+    `<div><button class="moyen" data-c="VIDER">Vider</button><button class="large" data-c=" ">espace</button>` +
+    `<button class="moyen" data-c="EFF">⌫</button><button class="moyen prim" data-c="OK">OK</button></div>`;
+  el.querySelectorAll("[data-c]").forEach(b => b.onclick = () => {
+    const c = b.dataset.c;
+    if (c === "OK") return change(champ.value, true);
+    champ.value = c === "EFF" ? champ.value.slice(0, -1) : c === "VIDER" ? "" : (champ.value + c).slice(0, 60);
+    change(champ.value, false);
+  });
+}
+/* Champ de recherche : clavier de l'écran sur la tête, clavier normal ailleurs */
+function champRecherche(f, id, valeur, change, indice) {
+  const zone = f.querySelector("#" + id);
+  zone.innerHTML = `<input class="champ" id="${id}c" value="${echap(valeur)}" placeholder="${echap(indice)}" autocomplete="off" ${ECRAN ? "readonly" : ""}>
+    ${ECRAN ? `<div class="clavier compact" id="${id}k" hidden></div>` : ""}`;
+  const champ = zone.querySelector("input");
+  if (ECRAN) {
+    const k = zone.querySelector(".clavier");
+    clavierRecherche(k, champ, (v, fini) => { if (fini) k.hidden = true; change(v, fini); });
+    champ.onclick = () => { k.hidden = !k.hidden; };
+  } else {
+    champ.oninput = () => change(champ.value, false);
+    champ.onkeydown = ev => { if (ev.key === "Enter") change(champ.value, true); };
+  }
+  return champ;
+}
+
+const filtreBib = {texte: "", etiq: "", type: "", fav: false};
+function modelesFiltres() {
+  const mots = plat(filtreBib.texte).split(/\s+/).filter(Boolean);
+  return (B ? B.modeles : []).filter(m => {
+    const t = m.t3k || {};
+    if (filtreBib.fav && !m.favori) return false;
+    if (filtreBib.etiq && !m.etiquettes.includes(filtreBib.etiq)) return false;
+    if (filtreBib.type === "fichier" ? m.source !== "fichier" : filtreBib.type && t.gear !== filtreBib.type) return false;
+    if (!mots.length) return true;
+    const foin = plat([m.nom, m.fichier, t.tone, t.modele, t.createur, t.pseudo, GEARS[t.gear], ...(t.makes || []),
+                       ...(t.tags || []), ...m.etiquettes].join(" "));
+    return mots.every(x => foin.includes(x));
+  }).sort((a, b) => (b.favori - a.favori) || a.nom.localeCompare(b.nom, "fr"));
+}
+/* o : {titre, courant (fichier), choisir(fichier)} */
+async function feuilleBibliotheque(o) {
+  if (!B) await relireBib();
+  const f = ouvrir(o.titre, `<div class="bhaut"><div id="bq" style="flex:1"></div></div>
+    <div class="puces" id="bpuces"></div><div class="bliste" id="bliste"></div>
+    <div class="boutonsfin">${ECRAN ? "" : `<button id="benvoi">Envoyer des fichiers .nam…</button>`}
+      <button id="bt3k">${logoT3K(true)} Trouver sur TONE3000…</button></div>`);
+  champRecherche(f, "bq", filtreBib.texte, v => { filtreBib.texte = v; liste(); },
+                 "Chercher : nom, marque, créateur, étiquette…");
+  const puces = () => {
+    const p = (cle, val, txt, sep) => `<button class="puce${filtreBib[cle] === val ? " on" : ""}${sep ? " sep" : ""}" data-cle="${cle}" data-val="${echap(val)}">${echap(txt)}</button>`;
+    f.querySelector("#bpuces").innerHTML = `<button class="puce${filtreBib.fav ? " on" : ""}" data-fav="1">★ Favoris</button>` +
+      (B ? B.etiquettes : []).map((e, i) => p("etiq", e, e, i === 0)).join("") +
+      [["amp", "Ampli"], ["amp-cab", "Ampli + baffle"], ["pedal", "Pédale"], ["fichier", "Mes fichiers"]].map(([v, t], i) => p("type", v, t, i === 0)).join("");
+    f.querySelectorAll("[data-cle]").forEach(b => b.onclick = () => {
+      filtreBib[b.dataset.cle] = filtreBib[b.dataset.cle] === b.dataset.val ? "" : b.dataset.val; puces(); liste();
+    });
+    f.querySelector("[data-fav]").onclick = () => { filtreBib.fav = !filtreBib.fav; puces(); liste(); };
+  };
+  const liste = () => {
+    const l = modelesFiltres(), z = f.querySelector("#bliste");
+    if (!z) return;
+    if (!B || !B.modeles.length) {
+      z.innerHTML = `<div class="videmsg">Aucun modèle .nam sur la tête.<br>Touchez « Trouver sur TONE3000 »${ECRAN ? "" : " ou envoyez des fichiers"}.</div>`;
+      return;
+    }
+    z.innerHTML = l.length ? l.map(m => {
+      const t = m.t3k || {};
+      const sous = t.tone ? [t.createur, GEARS[t.gear], ...(t.makes || [])].filter(Boolean).join(" · ") : "Mes fichiers";
+      return `<div class="bligne"><button class="bchoix${m.fichier === o.courant ? " courant" : ""}" data-f="${echap(m.fichier)}">
+        <span class="bimg">${vignette(t.image)}</span><span class="btxt"><b>${m.favori ? "★ " : ""}${echap(m.nom)}</b><small>${echap(sous)}</small></span>
+        <span class="betq">${m.etiquettes.map(e => `<i>${echap(e)}</i>`).join("")}</span></button>
+        <button class="bedit" data-e="${echap(m.fichier)}" aria-label="Fiche du modèle">✎</button></div>`;
+    }).join("") : `<div class="videmsg">Aucun modèle ne correspond.</div>`;
+    z.querySelectorAll("[data-f]").forEach(b => b.onclick = () => o.choisir(b.dataset.f));
+    z.querySelectorAll("[data-e]").forEach(b => b.onclick = () => feuilleFiche(b.dataset.e, () => feuilleBibliotheque(o)));
+  };
+  puces(); liste();
+  const env = f.querySelector("#benvoi"); if (env) env.onclick = envoyerFichiers;
+  f.querySelector("#bt3k").onclick = () => feuilleT3K();
+}
+
+/* Fiche d'un modèle : étiquettes, favori, nom affiché, suppression */
+function feuilleFiche(fichier, retour) {
+  const m = B && B.modeles.find(x => x.fichier === fichier);
+  if (!m) return retour();
+  const t = m.t3k;
+  const f = ouvrir("Fiche du modèle", `<div class="fiche"><div class="fimg">${vignette(t && t.image)}</div><div>
+      <div class="fnom">${echap(m.nom)}</div>
+      ${t ? `${m.renomme ? `<div>${echap(t.tone)} · ${echap(t.modele)}</div>` : ""}
+        <div class="doux">${echap([t.createur, GEARS[t.gear], ...(t.makes || [])].filter(Boolean).join(" · "))}</div>
+        <div class="doux">${logoT3K(true)} ${t.taille ? echap(t.taille) + " · " : ""}${t.licence ? "licence " + echap(t.licence) : ""}</div>`
+        : `<div class="doux">Fichier envoyé à la tête</div>`}
+      <div class="doux">Fichier : ${echap(fichier)}.nam</div></div></div>
+    <div class="etiq">Étiquettes : touchez pour ajouter ou enlever</div><div class="rangs" id="fetq"></div>
+    <div class="rangs"><button id="ffav">${m.favori ? "★ Favori" : "☆ Mettre en favori"}</button><button id="fren">Renommer</button>
+      <span style="flex:1"></span><button class="danger" id="fsup">Supprimer de la tête</button></div>
+    <div class="boutonsfin"><button class="prim" id="fret">Terminé</button></div>`);
+  const etq = () => {
+    f.querySelector("#fetq").innerHTML = B.etiquettes.map(e =>
+      `<button class="puce${m.etiquettes.includes(e) ? " on" : ""}" data-x="${echap(e)}">${echap(e)}</button>`).join("") +
+      `<button class="puce" id="fnouv">+ Nouvelle étiquette</button>`;
+    f.querySelectorAll("[data-x]").forEach(b => b.onclick = async () => {
+      const x = b.dataset.x;
+      m.etiquettes = m.etiquettes.includes(x) ? m.etiquettes.filter(y => y !== x) : [...m.etiquettes, x];
+      etq();
+      await action("/api/bibliotheque", {action: "etiqueter", fichier, etiquettes: m.etiquettes});
+      relireBib();
+    });
+    f.querySelector("#fnouv").onclick = () => demanderNom("Nouvelle étiquette", "", async nom => {
+      await action("/api/bibliotheque", {action: "etiqueter", fichier, etiquettes: [...m.etiquettes, nom]});
+      await relireBib(); feuilleFiche(fichier, retour);
+    }, {bouton: "Ajouter", annuler: () => feuilleFiche(fichier, retour)});
+  };
+  etq();
+  f.querySelector("#ffav").onclick = async () => {
+    await action("/api/bibliotheque", {action: "favori", fichier, favori: !m.favori});
+    await relireBib(); feuilleFiche(fichier, retour);
+  };
+  f.querySelector("#fren").onclick = () => demanderNom("Nom affiché du modèle", m.nom, async nom => {
+    await action("/api/bibliotheque", {action: "renommer", fichier, nom});
+    await relireBib(); redessiner(); feuilleFiche(fichier, retour);
+  }, {annuler: () => feuilleFiche(fichier, retour),
+      texte: "Le fichier ne change pas : les presets qui utilisent ce modèle continuent de marcher."});
+  f.querySelector("#fsup").onclick = async () => {
+    const u = await action("/api/bibliotheque", {action: "utilisation", fichier});
+    if (!u) return;
+    if (u.chaine.length) return message("Ce modèle est dans la chaîne en cours : choisissez-en un autre d'abord");
+    const p = u.presets.length ? ` Il est utilisé par ${u.presets.length > 1 ? "les presets" : "le preset"} « ${u.presets.join(" », « ")} » : ce bloc NAM n'aura plus de modèle.` : "";
+    confirmer(`Supprimer « ${m.nom} » de la tête ?${p}`, "Supprimer", async () => {
+      if (await action("/api/bibliotheque", {action: "supprimer", fichier})) message("Modèle supprimé", true);
+      await relireBib(); await maj(true); retour();
+    });
+  };
+  f.querySelector("#fret").onclick = retour;
+}
+
+/* ---------- TONE3000 ----------
+   Connexion par QR code, recherche, favoris, téléchargés, tendances,
+   nouveautés, fiche d'un tone, essai d'un modèle avant de le garder et
+   téléchargement modèle par modèle (ou tout d'un coup). */
+let T3 = null, t3Timer = null;
+const t3 = {vue: "liste", onglet: "search", texte: "", gear: "", res: null, charge: false, erreur: "",
+            tone: null, modeles: [], coches: new Set(), etiq: new Set(), qr: "", choixVu: 0};
+const ONGLETS = [["search", "Recherche"], ["favorited", "Favoris"], ["downloaded", "Téléchargés"],
+                 ["trending", "Tendances"], ["latest", "Nouveautés"], ["created", "Mes tones"]];
+const AVEC_TEXTE = ["search", "favorited", "downloaded", "created"];
+const t3Ouverte = () => !!$("t3k");
+async function lireT3() { try { T3 = await api("/api/tone3000"); } catch (e) { T3 = null; } return T3; }
+
+async function feuilleT3K() {
+  ouvrir("TONE3000", `<div id="t3k">Lecture…</div>`);
+  await lireT3();
+  if (t3.vue === "catalogue" || t3.vue === "connexion") t3.vue = "liste";
+  dessinerT3K();
+  if (T3 && T3.connecte && t3.vue === "liste" && !t3.res && t3.onglet !== "search") chercherT3(1);
+  clearInterval(t3Timer);
+  t3Timer = setInterval(async () => {
+    if (!t3Ouverte()) return clearInterval(t3Timer);
+    const avant = T3 ? T3.rev : -1, modeAvant = modeT3();
+    await lireT3();
+    if (!T3 || !t3Ouverte()) return;
+    if (T3.choix && T3.choix.n !== t3.choixVu) {          // tone choisi sur le téléphone
+      t3.choixVu = T3.choix.n; action("/api/tone3000", {action: "vu"});
+      return ouvrirTone(T3.choix.tone_id);
+    }
+    if (T3.rev !== avant) {
+      if (modeT3() !== modeAvant) return dessinerT3K();       // connexion faite, annulée, expirée…
+      if (T3.tache && T3.tache.fini && t3.vue === "tone") { await relireBib(); dessinerT3K(); maj(true); return; }
+      dessinerEtatT3();
+    } else if (T3.connexion && T3.connexion.etat === "attente") {
+      const r = $("t3reste"); if (r) r.textContent = minutes(T3.connexion.reste);
+    }
+  }, BLE() ? 2500 : 1200);
+}
+const modeT3 = () => !T3 ? "" : !T3.cle ? "cle" : T3.connecte ? "ok" : (T3.connexion ? T3.connexion.etat : "non");
+const minutes = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+function dessinerT3K() {
+  const z = $("t3k"); if (!z) return;
+  if (!T3) { z.innerHTML = `<div class="videmsg">Pas de réponse de la tête.</div>`; return; }
+  if (!T3.cle) {
+    z.innerHTML = `<div class="t3tete">${logoT3K()}</div>
+      <p style="line-height:1.5">Pour utiliser TONE3000, la tête a besoin de la clé de l'application. Elle se crée une seule fois sur
+      tone3000.com → Settings → API Keys, et commence par <b>t3k_pub_</b> (jamais la clé secrète t3k_cs_).</p>
+      <div class="boutonsfin"><button class="prim" id="t3cle">Entrer la clé…</button></div>`;
+    z.querySelector("#t3cle").onclick = () => entrerCle(feuilleT3K);
+    return;
+  }
+  const c = T3.connexion;
+  if (!T3.connecte && (!c || c.etat === "annule")) {
+    z.innerHTML = `<div class="t3tete">${logoT3K()}</div>
+      <p style="line-height:1.5">Connectez la tête à votre compte TONE3000 pour chercher et télécharger des modèles NAM.
+      Il suffit de scanner un QR code avec votre téléphone : rien à taper sur la tête. La tête doit être sur Internet (Wi-Fi).</p>
+      <div class="boutonsfin"><button class="prim" id="t3go">Connecter la tête</button></div>`;
+    z.querySelector("#t3go").onclick = async () => { if (await action("/api/tone3000", {action: "connecter"})) { await lireT3(); dessinerT3K(); } };
+    return;
+  }
+  if (!T3.connecte) {                                   // code à valider sur le téléphone
+    const fini = c.etat !== "attente";
+    z.innerHTML = `<div class="t3tete">${logoT3K()}<b style="font-weight:400">Connexion de la tête</b></div>
+      <div class="t3qr">${fini ? "" : qrSvg(c.url_complete, ECRAN ? 190 : 220)}
+        <div class="t3etapes">${fini ? `<div class="wres echec">${echap(c.message)}</div>` :
+          `1. Scannez le QR code avec votre téléphone,<br>ou ouvrez <b>${echap(c.url.replace(/^https?:\/\/(www\.)?/, ""))}</b><br>
+           2. Vérifiez ce code :<div class="t3code">${echap(c.code)}</div>
+           3. Validez : la tête se connecte toute seule.<br><small class="doux">Code valable encore <span id="t3reste">${minutes(c.reste)}</span></small>`}</div></div>
+      <div class="boutonsfin"><button id="t3ann">Annuler</button>${fini ? `<button class="prim" id="t3re">Recommencer</button>` : ""}</div>`;
+    z.querySelector("#t3ann").onclick = async () => { await action("/api/tone3000", {action: "annuler"}); await lireT3(); dessinerT3K(); };
+    const re = z.querySelector("#t3re");
+    if (re) re.onclick = async () => { if (await action("/api/tone3000", {action: "connecter"})) { await lireT3(); dessinerT3K(); } };
+    return;
+  }
+  if (c && c.etat === "ok" && !t3.res && t3.vue === "liste" && t3.onglet !== "search") { T3.connexion = null; chercherT3(1); }
+  const u = T3.utilisateur || {};
+  const tete = `<div class="t3tete">${logoT3K()}<span class="t3compte">${u.avatar ? `<img src="${echap(u.avatar)}" alt="" onerror="this.remove()">` : ""}${echap(u.nom || u.username || "")}</span></div>
+    <div id="t3etat"></div>`;
+  if (t3.vue === "tone") return dessinerTone(z, tete);
+  if (t3.vue === "catalogue") return dessinerCatalogue(z, tete);
+  const onglets = ONGLETS.filter(([k]) => k !== "search" || T3.recherche);
+  if (!T3.recherche && t3.onglet === "search") t3.onglet = "favorited";
+  z.innerHTML = tete + `<span class="seg" id="t3ong">${onglets.map(([k, n]) =>
+      `<button class="${k === t3.onglet ? "on" : ""}" data-o="${k}">${n}</button>`).join("")}</span>
+    ${AVEC_TEXTE.includes(t3.onglet) ? `<div id="t3q" style="margin-top:8px"></div>` : ""}
+    <div class="puces">${[["", "Tout"], ["amp", "Ampli"], ["amp-cab", "Ampli + baffle"], ["pedal", "Pédale"], ["outboard", "Rack"]].map(([g, n]) =>
+      `<button class="puce${g === t3.gear ? " on" : ""}" data-g="${g}">${n}</button>`).join("")}</div>
+    <div id="t3res"></div>
+    <div class="boutonsfin"><button id="t3cat">Tout le catalogue sur le téléphone…</button><button class="danger" id="t3dec">Déconnecter</button></div>`;
+  z.querySelectorAll("[data-o]").forEach(b => b.onclick = () => {
+    t3.onglet = b.dataset.o; t3.res = null; t3.erreur = ""; dessinerT3K();
+    if (t3.onglet !== "search" || t3.texte) chercherT3(1);
+  });
+  z.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { t3.gear = b.dataset.g; dessinerT3K(); chercherT3(1); });
+  if (AVEC_TEXTE.includes(t3.onglet))
+    champRecherche(z, "t3q", t3.texte, (v, fini) => { t3.texte = v; if (fini) chercherT3(1); },
+                   t3.onglet === "search" ? "Chercher dans TONE3000 : ampli, pédale, marque…" : "Filtrer par titre…");
+  z.querySelector("#t3cat").onclick = () => { t3.vue = "catalogue"; t3.qr = ""; dessinerT3K(); };
+  z.querySelector("#t3dec").onclick = () => confirmer("Déconnecter la tête du compte TONE3000 ? Les modèles téléchargés restent sur la tête.", "Déconnecter", async () => {
+    await action("/api/tone3000", {action: "deconnecter"}); t3.res = null; feuilleT3K();
+  });
+  dessinerEtatT3(); dessinerResultats();
+}
+
+/* Bandeau : téléchargement en cours, ou modèle en essai (garder / annuler) */
+function dessinerEtatT3() {
+  const z = $("t3etat"); if (!z || !T3) return;
+  const t = T3.tache, e = T3.essai;
+  let h = "";
+  if (e) h = `<span>Essai : <b>${echap(e.nom)}</b> (${echap(e.tone)}) dans ${echap(nomBloc({id: e.bloc, type: "NAM"}))}. Jouez !</span>
+    <button id="t3ann2">Annuler l'essai</button><button class="prim" id="t3garde">Garder</button>`;
+  else if (t && !t.fini) h = `<span>Téléchargement ${t.fait + 1}/${t.total} : ${echap(t.en_cours)}…</span><button id="t3stop">Arrêter</button>`;
+  else if (t && t.fini) h = `<span>${t.fait - t.erreurs.length - t.deja} modèle(s) de « ${echap(t.titre)} » téléchargé(s)${t.deja ? `, ${t.deja} déjà là` : ""}.${
+    t.erreurs.length ? ` <b style="color:var(--mal)">${t.erreurs.length} erreur(s) : ${echap(t.erreurs[0])}</b>` : ""}</span>`;
+  z.innerHTML = h;
+  const g = z.querySelector("#t3garde");
+  if (g) g.onclick = async () => {
+    const r = await action("/api/tone3000", {action: "garder", etiquettes: [...t3.etiq]});
+    if (r) { message("Modèle gardé dans la bibliothèque", true); await relireBib(); await lireT3(); await maj(true); dessinerT3K(); }
+  };
+  const a = z.querySelector("#t3ann2");
+  if (a) a.onclick = async () => { await action("/api/tone3000", {action: "abandonner"}); await lireT3(); await maj(true); dessinerT3K(); };
+  const s = z.querySelector("#t3stop");
+  if (s) s.onclick = () => action("/api/tone3000", {action: "stop"});
+}
+
+async function chercherT3(page) {
+  if (t3.onglet === "search" && !t3.texte.trim() && page === 1 && !t3.gear) { t3.res = null; return dessinerResultats(); }
+  t3.charge = true; t3.erreur = ""; dessinerResultats();
+  try {
+    const r = await api("/api/tone3000", {action: "liste", quoi: t3.onglet, texte: t3.texte, gear: t3.gear, page});
+    if (!r || r.ok === false) { t3.erreur = (r && r.erreur) || "Erreur"; if (page === 1) t3.res = null; }
+    else if (page > 1 && t3.res) t3.res = {...r, tones: t3.res.tones.concat(r.tones)};
+    else t3.res = r;
+  } catch (e) { t3.erreur = "Pas de réponse de la tête"; }
+  t3.charge = false; dessinerResultats();
+}
+function dessinerResultats() {
+  const z = $("t3res"); if (!z) return;
+  const r = t3.res;
+  let h = t3.erreur ? `<div class="wres echec">${echap(t3.erreur)}</div>` : "";
+  if (!r && !t3.charge && t3.onglet === "search")
+    h += `<div class="videmsg">Tapez ce que vous cherchez puis OK.<br><small>Seuls les tones avec des modèles NAM A2 sont montrés.</small></div>`;
+  if (r) {
+    h += r.tones.length ? `<div class="tgrille">${r.tones.map(t => `<button class="tcarte" data-t="${t.id}">
+        <span class="timg">${vignette(t.image)}</span><span class="ttxt"><b>${echap(t.titre)}</b>
+        <small>${echap(GEARS[t.gear] || t.gear)} · NAM${t.a2 > 0 ? ` · ${t.a2} A2` : ""}</small>
+        <small class="tcre">${t.avatar ? `<img src="${echap(t.avatar)}" alt="" onerror="this.remove()">` : ""}${echap(t.createur)}${t.verifie ? " ✓" : ""}</small>
+        ${t.chez_moi ? `<small class="tchez">✓ ${t.chez_moi} sur la tête</small>` : ""}</span></button>`).join("")}</div>`
+      : `<div class="videmsg">Rien trouvé${t3.onglet === "favorited" ? " : mettez des tones en favori sur tone3000.com (téléphone ou ordinateur), ils apparaîtront ici" : ""}.</div>`;
+    if (r.masques) h += `<div class="pied">${r.masques} tone(s) masqué(s) : pas de modèle NAM A2.</div>`;
+    if (r.page < r.pages) h += `<div class="boutonsfin" style="justify-content:center"><button id="t3plus">Plus de résultats</button></div>`;
+  }
+  if (t3.charge) h += `<div class="videmsg">Recherche…</div>`;
+  z.innerHTML = h;
+  z.querySelectorAll("[data-t]").forEach(b => b.onclick = () => ouvrirTone(+b.dataset.t));
+  const p = z.querySelector("#t3plus"); if (p) p.onclick = () => chercherT3(r.page + 1);
+}
+
+async function ouvrirTone(id, frais) {
+  t3.vue = "tone"; t3.tone = null; t3.coches = new Set(); dessinerT3K();
+  const r = await action("/api/tone3000", {action: "tone", id, frais: !!frais});
+  if (!r) { t3.vue = "liste"; return dessinerT3K(); }
+  t3.tone = r.tone; t3.modeles = r.modeles; dessinerT3K();
+}
+function dessinerTone(z, tete) {
+  const t = t3.tone;
+  if (!t) { z.innerHTML = tete + `<div class="videmsg">Lecture du tone…</div>`; return dessinerEtatT3(); }
+  const nouveaux = t3.modeles.filter(m => !m.fichier);
+  const tout = nouveaux.length > 0 && nouveaux.every(m => t3.coches.has(m.id));
+  const enCoursT = T3.tache && !T3.tache.fini;
+  z.innerHTML = tete + `<div class="rangs" style="margin:0 0 8px"><button id="t3ret">◀ Résultats</button></div>
+    <div class="fiche"><div class="fimg">${vignette(t.image)}</div><div style="min-width:0">
+      <div class="fnom">${echap(t.titre)}</div>
+      <div class="tcre doux">${t.avatar ? `<img src="${echap(t.avatar)}" alt="" style="width:18px;height:18px;border-radius:50%" onerror="this.remove()">` : ""}${echap(t.createur)}${t.verifie ? " ✓" : ""}</div>
+      <div class="doux">${echap([GEARS[t.gear] || t.gear, "NAM", ...t.makes].filter(Boolean).join(" · "))}${t.licence ? " · licence " + echap(t.licence) : ""}</div>
+      ${t.tags.length ? `<div class="betq" style="justify-content:flex-start;max-width:none;margin-top:4px">${t.tags.map(x => `<i>${echap(x)}</i>`).join("")}</div>` : ""}
+      ${t.description ? `<div class="tdesc">${echap(t.description)}</div>` : ""}</div></div>
+    <div class="etiq">Modèles A2 (${t3.modeles.length}) : cochez ceux à télécharger, ou essayez-les d'abord</div>
+    <div>${t3.modeles.map(m => `<div class="mligne"><label>${m.fichier ? `<span style="color:var(--accent);width:22px">✓</span>` :
+        `<input type="checkbox" data-c="${m.id}" ${t3.coches.has(m.id) ? "checked" : ""}>`}<span>${echap(m.nom)}</span>
+        <small>${echap(m.taille)}${m.fichier ? " · sur la tête" : ""}</small></label>
+        <button data-essai="${m.id}">${m.fichier ? "Charger" : "Essayer"}</button></div>`).join("") ||
+      `<div class="videmsg">Pas de modèle A2 dans ce tone.</div>`}</div>
+    ${nouveaux.length > 1 ? `<div class="mligne"><label><input type="checkbox" id="t3tout" ${tout ? "checked" : ""}><span>Tout télécharger</span></label></div>` : ""}
+    <div class="etiq">Étiquettes à mettre sur les modèles téléchargés ou gardés</div>
+    <div class="puces" style="flex-wrap:wrap">${(B ? B.etiquettes : []).map(e => `<button class="puce${t3.etiq.has(e) ? " on" : ""}" data-x="${echap(e)}">${echap(e)}</button>`).join("")}</div>
+    <div class="boutonsfin">${ECRAN ? "" : `<a href="${echap(t.url)}" target="_blank" rel="noopener" class="doux" style="margin-right:auto;align-self:center">Voir sur tone3000.com</a>`}
+      <button class="prim" id="t3dl" ${t3.coches.size && !enCoursT ? "" : "disabled"}>Télécharger${t3.coches.size ? ` (${t3.coches.size})` : ""}</button></div>`;
+  dessinerEtatT3();
+  z.querySelector("#t3ret").onclick = () => { t3.vue = "liste"; dessinerT3K(); };
+  z.querySelectorAll("[data-c]").forEach(c => c.onchange = () => {
+    const id = +c.dataset.c; c.checked ? t3.coches.add(id) : t3.coches.delete(id); dessinerT3K();
+  });
+  const tt = z.querySelector("#t3tout");
+  if (tt) tt.onchange = () => { t3.coches = tt.checked ? new Set(nouveaux.map(m => m.id)) : new Set(); dessinerT3K(); };
+  z.querySelectorAll("[data-x]").forEach(b => b.onclick = () => {
+    const x = b.dataset.x; t3.etiq.has(x) ? t3.etiq.delete(x) : t3.etiq.add(x); dessinerT3K();
+  });
+  z.querySelectorAll("[data-essai]").forEach(b => b.onclick = async () => {
+    const m = t3.modeles.find(x => x.id === +b.dataset.essai);
+    b.disabled = true; b.textContent = "…";
+    if (!m.fichier) message("Téléchargement de l'essai…", true);
+    const r = await action("/api/tone3000", {action: "essayer", tone_id: t.id, model_id: m.id, bloc: sel});
+    if (r) { sel = r.bloc; message(m.fichier ? `« ${nomAffiche(m.fichier)} » chargé` : `Essai de « ${m.nom} » : jouez !`, true); }
+    await relireBib(); await lireT3(); await maj(true); dessinerT3K();
+  });
+  z.querySelector("#t3dl").onclick = async () => {
+    const r = await action("/api/tone3000", {action: "telecharger", tone_id: t.id, modeles: [...t3.coches], etiquettes: [...t3.etiq]});
+    if (r) { t3.coches = new Set(); message("Téléchargement lancé", true); await lireT3(); dessinerT3K(); }
+    // à la fin, la liste des modèles est relue (boucle de la feuille)
+    const fin = setInterval(async () => {
+      if (!t3Ouverte() || !T3 || (T3.tache && T3.tache.fini)) {
+        clearInterval(fin);
+        if (t3Ouverte() && t3.vue === "tone" && t3.tone && t3.tone.id === t.id) {
+          const r2 = await api("/api/tone3000", {action: "tone", id: t.id}).catch(() => null);
+          if (r2 && r2.ok !== false) { t3.modeles = r2.modeles; await relireBib(); dessinerT3K(); }
+        }
+      }
+    }, 1000);
+  };
+}
+
+/* Tout le catalogue (page TONE3000, avec sa recherche) sur le téléphone : le
+   tone choisi revient à la tête par le réseau local et s'ouvre ici. */
+async function dessinerCatalogue(z, tete) {
+  z.innerHTML = tete + `<div class="rangs" style="margin:0 0 8px"><button id="t3ret">◀ Résultats</button></div><div id="t3cq" class="videmsg">…</div>`;
+  z.querySelector("#t3ret").onclick = () => { t3.vue = "liste"; dessinerT3K(); };
+  dessinerEtatT3();
+  if (!t3.qr) {
+    const r = await action("/api/tone3000", {action: "catalogue", hote: TRANSPORT() ? "" : location.host});
+    if (!r) { t3.vue = "liste"; return dessinerT3K(); }
+    t3.qr = r.url;
+  }
+  const q = $("t3cq"); if (!q) return;
+  q.className = "";
+  q.innerHTML = `<div class="t3qr">${qrSvg(t3.qr, ECRAN ? 190 : 220)}<div class="t3etapes">
+      Scannez avec votre téléphone, <b>sur le même Wi-Fi que la tête</b> : le catalogue TONE3000 complet s'ouvre, avec sa recherche.<br><br>
+      Choisissez un tone : il s'ouvre ici, sur la tête, pour essayer ou télécharger ses modèles.
+      ${ECRAN ? "" : `<br><br><a href="${echap(t3.qr)}" target="_blank" rel="noopener">Ouvrir le catalogue dans un nouvel onglet</a>`}</div></div>`;
+}
+
+function entrerCle(retour) {
+  demanderNom("Clé TONE3000 (t3k_pub_…)", "", async v => {
+    if (await action("/api/tone3000", {action: "cle", valeur: v.trim()})) message("Clé enregistrée", true);
+    retour();
+  }, {mdp: true, bouton: "Enregistrer", annuler: retour,
+      texte: "Clé publique de l'application, créée sur tone3000.com → Settings → API Keys."});
+}
+
 /* ---------- Mise à jour ---------- */
 function redessiner() {
   if (occupe) { aRedessiner = true; return; }
@@ -1290,6 +1908,8 @@ async function maj(forcer) {
     let change = false;
     if (!C || C.cfg !== E.cfg) { C = await api("/api/config"); change = true; }
     if (forcer || !T || T.rev !== E.rev) { T = await api("/api/tout"); change = true; }
+    const cb = E.bib + "|" + E.cfg + "|" + E.t3k;
+    if (!B || cb !== cleBib) { cleBib = cb; await relireBib(); change = true; }
     if (change) redessiner(); else dessinerHaut();
   } catch (e) {
     $("bandeau").classList.add("ouvert"); $("bandeau").textContent = "Pas de connexion avec la tête…";
