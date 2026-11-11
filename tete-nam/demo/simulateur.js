@@ -462,6 +462,10 @@
       const boucle = M.r.sortie === "system:playback_3" && M.r.entree === "system:capture_1";
       const lu = boucle && M.r.son !== false ? M.r.niveau + 10 - 22.5 + (Math.random() - 0.5) * 0.02 : -96;
       lecture = {lu, crete: lu + 0.01, freq_lue: boucle ? M.r.freq : 0, freq: M.r.freq, niveau: M.r.niveau, stable: 1};
+      if (M.r.mode === "carre") {        // carré 0 / 3,3 V du Pi sur l'entrée 1
+        const ok = M.r.entree === "system:capture_1", c = 20 * Math.log10(1.65 / Math.SQRT2 / 0.7746) - 22.5 + (Math.random() - 0.5) * 0.02;
+        lecture = {lu: ok ? c + 2.8 : -96, crete: ok ? c + 0.5 : -96, carre: ok ? c : -96, nettete: ok ? 0.93 : 0, freq_lue: ok ? 1000 : 0, freq: 1000, stable: 1};
+      }
     }
     return {ok: true, actif: M.actif, lecture, reglage: M.r, erreur: "", INPUT_DBU: s.cal, CARD: s.carte || "M4"};
   };
@@ -471,7 +475,7 @@
         sorties: ["system:playback_1", "system:playback_2", "system:playback_3", "system:playback_4"],
         sorties_moteur: ["system:playback_1", "system:playback_2"], sortie: "system:playback_3",
         entree: "system:capture_1", INPUT_DBU: s.cal, CARD: s.carte || "M4"};
-      case "demarrer": M.actif = true; M.r = {sortie: d.sortie, entree: d.entree, freq: +d.freq, niveau: +d.niveau}; M.t = Date.now(); break;
+      case "demarrer": M.actif = true; M.r = {mode: d.mode, sortie: d.sortie, entree: d.entree, freq: +d.freq, niveau: +d.niveau}; M.t = Date.now(); break;
       case "regler": Object.assign(M.r, d); delete M.r.action; M.t = Date.now(); break;
       case "arreter": M.actif = false; break;
       default: throw new Error("Action inconnue");

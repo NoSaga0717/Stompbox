@@ -39,7 +39,9 @@ API (tout en JSON) :
   POST /api/carte     {id}   change de carte son (relance l'audio)
   GET  /api/mesure    mesure de calibration en cours : niveau lu sur l'entrée
   POST /api/mesure    {action: ports|demarrer|regler|arreter, sortie, entree, freq,
-                      niveau, son}   sinus de test pour mesurer les dBu de la carte
+                      niveau, son}   sinus de test pour mesurer les dBu de la carte ;
+                      {action: demarrer, mode: carre, entree} : sans multimètre,
+                      carré 0 / 3,3 V sur la broche GPIO 23 du Pi
   GET  /tone3000/catalogue   (téléphone) ouvre le catalogue TONE3000 ; le tone
                       choisi revient sur /tone3000/retour puis s'ouvre sur la tête
 
@@ -1626,6 +1628,7 @@ def api_carte(d):
 # sorties de la carte, puis remet tout. Sans nouvelles de la page pendant 30 s
 # (GET /api/mesure), il s'arrête seul : un sinus ne reste jamais bloqué.
 MESURE_BIN = os.environ.get("TETE_NAM_MESURE", "/opt/tete-nam/tete-nam-mesure")
+GPIO_MESURE = 23    # broche 16 du connecteur : carré 0 / 3,3 V de la mesure sans multimètre
 mesure = {"proc": None, "lecture": None, "reglage": {}, "erreur": "", "coupees": 0}
 verrou_mesure = threading.Lock()
 
@@ -1695,6 +1698,23 @@ def arreter_mesure():
             p.kill()
 
 
+def lancer_mesure(commande, reglage, texte):
+    proc = subprocess.Popen(commande, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+    try:
+        r = json.loads(proc.stdout.readline())
+    except ValueError:
+        r = {"ok": False, "erreur": "L'outil de mesure ne répond pas"}
+    if not r.get("ok"):
+        proc.kill()
+        proc.wait()
+        raise ValueError(r.get("erreur", "Mesure impossible"))
+    with verrou_mesure:
+        mesure.update(proc=proc, lecture=None, erreur="", coupees=r.get("coupees", 0), reglage=reglage)
+    threading.Thread(target=lire_sortie_mesure, args=(proc,), daemon=True).start()
+    journal(f"Mesure : {texte}")
+    return {"ok": True}
+
+
 def api_mesure_lire():
     """Appelé ~3 fois par seconde par la page de mesure : sert aussi de « je suis là »."""
     actif = ecrire_mesure("k")
@@ -1721,30 +1741,24 @@ def api_mesure(d):
             raise ValueError("L'audio redémarre, patientez")
         p = ports_carte()
         sortie, entree = str(d.get("sortie", "")), str(d.get("entree", ""))
+        if d.get("mode") == "carre":
+            # Sans multimètre : carré 0 / 3,3 V sur une broche GPIO du Pi
+            broche = int(d.get("gpio", GPIO_MESURE))
+            if entree not in p["captures"] or not 2 <= broche <= 27:
+                raise ValueError("Choisissez une entrée de la carte son")
+            arreter_mesure()
+            return lancer_mesure([binaire_mesure(), "--carre-gpio", str(broche), "--entree", entree],
+                                 {"mode": "carre", "entree": entree, "gpio": broche},
+                                 f"carré 0/3,3 V sur GPIO {broche}, lecture sur {entree}")
         if sortie not in p["sorties"] or entree not in p["captures"]:
             raise ValueError("Choisissez une sortie et une entrée de la carte son")
         freq = min(20000.0, max(20.0, float(d.get("freq", 1000))))
         niveau_ = min(0.0, max(-60.0, float(d.get("niveau", -10))))
         arreter_mesure()
-        proc = subprocess.Popen([binaire_mesure(), "--sortie", sortie, "--entree", entree,
-                                 "--freq", f"{freq:g}", "--niveau", f"{niveau_:g}"],
-                                stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
-        premiere = proc.stdout.readline()
-        try:
-            r = json.loads(premiere)
-        except ValueError:
-            r = {"ok": False, "erreur": "L'outil de mesure ne répond pas"}
-        if not r.get("ok"):
-            proc.kill()
-            proc.wait()
-            raise ValueError(r.get("erreur", "Mesure impossible"))
-        with verrou_mesure:
-            mesure.update(proc=proc, lecture=None, erreur="", coupees=r.get("coupees", 0),
-                          reglage={"sortie": sortie, "entree": entree, "freq": freq,
-                                   "niveau": niveau_, "son": True})
-        threading.Thread(target=lire_sortie_mesure, args=(proc,), daemon=True).start()
-        journal(f"Mesure : sinus {freq:g} Hz {niveau_:g} dBFS sur {sortie}, lecture sur {entree}")
-        return {"ok": True}
+        return lancer_mesure([binaire_mesure(), "--sortie", sortie, "--entree", entree,
+                              "--freq", f"{freq:g}", "--niveau", f"{niveau_:g}"],
+                             {"sortie": sortie, "entree": entree, "freq": freq, "niveau": niveau_, "son": True},
+                             f"sinus {freq:g} Hz {niveau_:g} dBFS sur {sortie}, lecture sur {entree}")
     if a == "regler":
         if mesure["proc"] is None:
             raise ValueError("Mesure arrêtée")

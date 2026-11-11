@@ -10,6 +10,12 @@
  *   tete-nam-mesure --sortie system:playback_3 --entree system:capture_1 \
  *                   [--freq 1000] [--niveau -12]
  *       joue un sinus sur la sortie choisie et mesure l'entrée choisie.
+ *   tete-nam-mesure --carre-gpio 23 --entree system:capture_1
+ *       sans multimètre : fait un signal carré 0 / 3,3 V à 1 kHz sur la
+ *       broche GPIO 23 du Pi (broche 16 du connecteur), à relier par une
+ *       résistance de 1 kΩ à la pointe d'un jack branché dans l'entrée (masse
+ *       du Pi, broche 14, sur le corps du jack). Le 3,3 V du Pi sert alors
+ *       de tension de référence. Pas de sinus dans ce mode.
  *
  * Pendant la mesure, toutes les autres liaisons vers les sorties de la carte
  * sont coupées (plus de son du moteur dans les enceintes, pas de larsen par
@@ -32,11 +38,24 @@
  *   crete : vraie crête mesurée. Pour un sinus propre, crete ≈ lu. Un écart
  *           de plus de 0,5 dB veut dire signal déformé (saturation) ou bruit.
  *   stable: 0 juste après un changement (on attend que tout se pose).
+ *   En mode carré, en plus :
+ *   carre  : demi-hauteur du carré reçu (entre ses deux paliers), en dBFS.
+ *            Mesurée par les médianes des deux paliers : insensible aux
+ *            oscillations des fronts, au rapport cyclique et aux à-coups
+ *            de cadence.
+ *   nettete: part des échantillons posés sur un des deux paliers (0 à 1).
+ *            Un vrai carré bien reçu donne plus de 0,7.
  *
- * Compilation : gcc -O2 -o tete-nam-mesure mesure-niveau.c -ljack -lm
+ * Compilation : gcc -O2 -o tete-nam-mesure mesure-niveau.c -ljack -lm -lpthread
  */
+#include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <jack/jack.h>
+#include <linux/gpio.h>
+#include <pthread.h>
+#include <sched.h>
+#include <sys/ioctl.h>
 #include <math.h>
 #include <signal.h>
 #include <stdatomic.h>
@@ -75,6 +94,8 @@ static int signe_prec = 0;
 static long taille_fenetre, a_jeter;
 /* deux cases : le fil audio remplit l'une pendant qu'on lit l'autre */
 static Mesure publiee[2];
+static float *echantillons[2];           /* les échantillons de chaque fenêtre */
+static int mode_carre = 0;
 static _Atomic int numero_publie = 0;    /* +1 à chaque fenêtre publiée */
 static _Atomic int changement = 0;       /* fixé par le fil principal */
 static int stable_en_cours = 0;
@@ -94,6 +115,103 @@ static void sortir_json_chaine(const char *s)
 }
 
 static double db(double v) { return v > 1e-12 ? 20.0 * log10(v) : -240.0; }
+
+/* ---- Signal carré sur une broche GPIO (mode sans multimètre) ---- */
+static int gpio_fd = -1;
+static pthread_t fil_gpio;
+
+static void gpio_ecrire(int v)
+{
+    struct gpio_v2_line_values val = {.bits = v ? 1 : 0, .mask = 1};
+    if (gpio_fd >= 0) ioctl(gpio_fd, GPIO_V2_LINE_SET_VALUES_IOCTL, &val);
+}
+
+/* Ouvre la broche en sortie sur la puce GPIO du connecteur 40 broches
+   (« pinctrl-rp1 » sur Pi 5, « pinctrl-bcm2711/2835 » sur les Pi plus anciens). */
+static const char *gpio_ouvrir(int broche)
+{
+    DIR *d = opendir("/dev");
+    struct dirent *e;
+    const char *erreur = "Pas de puce GPIO du Pi (/dev/gpiochip*)";
+    while (d && (e = readdir(d))) {
+        if (strncmp(e->d_name, "gpiochip", 8)) continue;
+        char chemin[300];
+        snprintf(chemin, sizeof chemin, "/dev/%s", e->d_name);
+        int fd = open(chemin, O_RDWR | O_CLOEXEC);
+        if (fd < 0) { erreur = "Accès GPIO refusé (l'utilisateur doit être dans le groupe gpio)"; continue; }
+        struct gpiochip_info info = {0};
+        if (ioctl(fd, GPIO_GET_CHIPINFO_IOCTL, &info) || strncmp(info.label, "pinctrl-", 8) ||
+            (unsigned)broche >= info.lines) {
+            close(fd);
+            continue;
+        }
+        struct gpio_v2_line_request req = {0};
+        req.offsets[0] = broche;
+        req.num_lines = 1;
+        req.config.flags = GPIO_V2_LINE_FLAG_OUTPUT;
+        snprintf(req.consumer, sizeof req.consumer, "tete-nam-mesure");
+        int r = ioctl(fd, GPIO_V2_GET_LINE_IOCTL, &req);
+        close(fd);
+        if (r) { erreur = "Broche GPIO occupée ou refusée"; continue; }
+        gpio_fd = req.fd;
+        closedir(d);
+        return NULL;
+    }
+    if (d) closedir(d);
+    return erreur;
+}
+
+/* 1 kHz : 0,5 ms à 3,3 V puis 0,5 ms à 0 V. Une cadence un peu irrégulière
+   ne gêne pas : on mesure la hauteur des paliers, pas leur durée. */
+static void *boucle_gpio(void *arg)
+{
+    (void)arg;
+    struct sched_param sp = {.sched_priority = 10};
+    pthread_setschedparam(pthread_self(), SCHED_FIFO, &sp);   /* si permis */
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    int v = 0;
+    while (!atomic_load(&arret)) {
+        v = !v;
+        gpio_ecrire(v);
+        t.tv_nsec += 500000;
+        if (t.tv_nsec >= 1000000000) { t.tv_nsec -= 1000000000; t.tv_sec++; }
+        clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &t, NULL);
+    }
+    gpio_ecrire(0);
+    return NULL;
+}
+
+static int comparer(const void *a, const void *b)
+{
+    float x = *(const float *)a, y = *(const float *)b;
+    return (x > y) - (x < y);
+}
+
+/* Médianes des deux paliers d'un carré : demi-hauteur et netteté */
+static void analyser_carre(const float *x, long n, double moy, double *demi, double *nettete)
+{
+    float *haut = malloc(n * sizeof(float)), *bas = malloc(n * sizeof(float));
+    long nh = 0, nb = 0;
+    for (long i = 0; i < n; i++) {
+        if (x[i] > moy) haut[nh++] = x[i];
+        else bas[nb++] = x[i];
+    }
+    *demi = 0;
+    *nettete = 0;
+    if (nh > 10 && nb > 10) {
+        qsort(haut, nh, sizeof(float), comparer);
+        qsort(bas, nb, sizeof(float), comparer);
+        double mh = haut[nh / 2], mb = bas[nb / 2], tol = 0.03 * (mh - mb);
+        *demi = (mh - mb) / 2;
+        long poses = 0;
+        for (long i = 0; i < n; i++)
+            if (fabs(x[i] - mh) <= tol || fabs(x[i] - mb) <= tol) poses++;
+        *nettete = (double)poses / n;
+    }
+    free(haut);
+    free(bas);
+}
 
 static int traiter(jack_nframes_t n, void *arg)
 {
@@ -121,6 +239,7 @@ static int traiter(jack_nframes_t n, void *arg)
 
         if (a_jeter > 0) { a_jeter--; continue; }
         double x = in[i];
+        if (mode_carre) echantillons[(atomic_load(&numero_publie) + 1) & 1][acc.n] = (float)x;
         acc.somme += x;
         acc.somme2 += x * x;
         if (fabs(x) > acc.crete) acc.crete = fabs(x);
@@ -213,20 +332,23 @@ int main(int argc, char **argv)
 {
     const char *sortie = NULL, *entree = NULL;
     double niveau = -12.0;
-    int ports = 0;
+    int ports = 0, broche = -1;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--ports")) ports = 1;
         else if (!strcmp(argv[i], "--sortie") && i + 1 < argc) sortie = argv[++i];
         else if (!strcmp(argv[i], "--entree") && i + 1 < argc) entree = argv[++i];
         else if (!strcmp(argv[i], "--freq") && i + 1 < argc) frequence = borne(atof(argv[++i]), 20, 20000);
         else if (!strcmp(argv[i], "--niveau") && i + 1 < argc) niveau = atof(argv[++i]);
+        else if (!strcmp(argv[i], "--carre-gpio") && i + 1 < argc) broche = atoi(argv[++i]);
         else {
-            fprintf(stderr, "usage : %s --ports | --sortie PORT --entree PORT [--freq Hz] [--niveau dBFS]\n", argv[0]);
+            fprintf(stderr, "usage : %s --ports | --sortie PORT --entree PORT [--freq Hz] [--niveau dBFS]\n"
+                            "        | --carre-gpio BROCHE --entree PORT\n", argv[0]);
             return 2;
         }
     }
-    if (!ports && (!sortie || !entree)) {
-        fprintf(stderr, "--sortie et --entree sont obligatoires\n");
+    mode_carre = broche >= 0;
+    if (!ports && (!entree || (!sortie && !mode_carre))) {
+        fprintf(stderr, "--entree et --sortie (ou --carre-gpio) sont obligatoires\n");
         return 2;
     }
 
@@ -245,6 +367,18 @@ int main(int argc, char **argv)
     atomic_store(&frequence_voulue, frequence);
     regler_niveau(niveau);
     taille_fenetre = (long)(FENETRE_S * jack_get_sample_rate(client));
+    if (mode_carre) {
+        /* TETE_NAM_MESURE_SANS_GPIO=1 : essais sur PC, le carré vient d'ailleurs */
+        const char *err = getenv("TETE_NAM_MESURE_SANS_GPIO") ? NULL : gpio_ouvrir(broche);
+        if (err) {
+            printf("{\"ok\":false,\"erreur\":\"%s\"}\n", err);
+            jack_client_close(client);
+            return 1;
+        }
+        atomic_store(&son, 0);
+        echantillons[0] = calloc(taille_fenetre + 1, sizeof(float));
+        echantillons[1] = calloc(taille_fenetre + 1, sizeof(float));
+    }
     a_jeter = (long)(ATTENTE_S * jack_get_sample_rate(client));
 
     port_sortie = jack_port_register(client, "sinus", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
@@ -264,19 +398,20 @@ int main(int argc, char **argv)
         printf("{\"ok\":false,\"erreur\":\"Client JACK impossible à activer\"}\n");
         return 1;
     }
-    if (!jack_port_by_name(client, sortie) || !jack_port_by_name(client, entree)) {
-        printf("{\"ok\":false,\"erreur\":\"Prise %s ou %s introuvable\"}\n", sortie, entree);
+    if ((sortie && !jack_port_by_name(client, sortie)) || !jack_port_by_name(client, entree)) {
+        printf("{\"ok\":false,\"erreur\":\"Prise %s ou %s introuvable\"}\n", sortie ? sortie : "-", entree);
         jack_client_close(client);
         return 1;
     }
     couper_sorties();
-    if (jack_connect(client, jack_port_name(port_sortie), sortie) ||
+    if ((sortie && jack_connect(client, jack_port_name(port_sortie), sortie)) ||
         jack_connect(client, entree, jack_port_name(port_entree))) {
-        printf("{\"ok\":false,\"erreur\":\"Liaison vers %s ou depuis %s impossible\"}\n", sortie, entree);
+        printf("{\"ok\":false,\"erreur\":\"Liaison vers %s ou depuis %s impossible\"}\n", sortie ? sortie : "-", entree);
         remettre_sorties();
         jack_client_close(client);
         return 1;
     }
+    if (mode_carre && gpio_fd >= 0) pthread_create(&fil_gpio, NULL, boucle_gpio, NULL);
     printf("{\"ok\":true,\"debut\":1,\"frequence\":%u,\"coupees\":%d}\n", jack_get_sample_rate(client), nb_liaisons);
     fflush(stdout);
 
@@ -299,7 +434,9 @@ int main(int argc, char **argv)
                 *fin = 0;
                 double v = 0;
                 derniere_commande = maintenant();
-                if (sscanf(ligne, "f %lf", &v) == 1) {
+                if (mode_carre && (ligne[0] == 'f' || ligne[0] == 'n' || ligne[0] == 's')) {
+                    /* pas de sinus en mode carré */
+                } else if (sscanf(ligne, "f %lf", &v) == 1) {
                     atomic_store(&frequence_voulue, borne(v, 20, 20000));
                     atomic_store(&changement, 1);
                 } else if (sscanf(ligne, "n %lf", &v) == 1) {
@@ -329,15 +466,25 @@ int main(int argc, char **argv)
             double rms = sqrt(var > 0 ? var : 0);
             double fe = jack_get_sample_rate(client);
             printf("{\"lu\":%.3f,\"crete\":%.3f,\"rms\":%.3f,\"continu\":%.6f,\"freq_lue\":%.1f,"
-                   "\"freq\":%.1f,\"niveau\":%.2f,\"son\":%d,\"stable\":%d}\n",
+                   "\"freq\":%.1f,\"niveau\":%.2f,\"son\":%d,\"stable\":%d",
                    db(rms * M_SQRT2), db(m.crete), db(rms), moy, m.passages * fe / m.n,
-                   atomic_load(&frequence_voulue), niveau, atomic_load(&son), m.stable);
+                   mode_carre ? 1000.0 : atomic_load(&frequence_voulue), niveau, atomic_load(&son), m.stable);
+            if (mode_carre) {
+                double demi, nettete;
+                analyser_carre(echantillons[numero & 1], m.n, moy, &demi, &nettete);
+                printf(",\"carre\":%.3f,\"nettete\":%.3f", db(demi), nettete);
+            }
+            printf("}\n");
             fflush(stdout);
         }
     }
 
     /* fondu de sortie puis on remet les liaisons du moteur */
     atomic_store(&arret, 1);
+    if (mode_carre && gpio_fd >= 0) {
+        pthread_join(fil_gpio, NULL);
+        close(gpio_fd);
+    }
     if (!atomic_load(&jack_parti)) {
         usleep(80000);
         remettre_sorties();
