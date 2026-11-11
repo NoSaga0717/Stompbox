@@ -121,7 +121,9 @@ On peut mettre autant de blocs NAM et d'effets qu'on veut, dans n'importe quel o
 
 **Presets** : toucher le nom du preset ouvre la liste (charger, supprimer, nouveau). **Enregistrer** écrase le preset actuel ou en crée un nouveau. Les modifications non enregistrées sont gardées même après une coupure de courant : la tête redémarre comme vous l'avez laissée, avec « modifié » affiché.
 
-**Système** (toucher la zone DSP) : courbe de charge, xruns, température, taille du buffer JACK (changer relance l'audio, 5 secondes de silence), calibration d'entrée (16 dBu pour la M4), volume général, veille de l'écran, carte son, Wi-Fi et TONE3000.
+**Système** (toucher la zone DSP) : courbe de charge, xruns, température, taille du buffer JACK (changer relance l'audio, 5 secondes de silence), calibration d'entrée (16 dBu pour la M4 gain au minimum), volume général, veille de l'écran, carte son, Wi-Fi et TONE3000.
+
+**Mesurer la calibration de la carte son** (Système → Calibration d'entrée → Mesurer…) : la tête joue un sinus sur une sortie de la carte et lit le niveau reçu sur une entrée. Avec un multimètre (V alternatif) sur le câble, la page calcule les dBu qui donnent 0 dBFS en entrée et en sortie, puis applique la valeur d'entrée. Le chiffre dépend du bouton de gain de la carte : le mesurer gain réglé comme pour jouer. Pendant la mesure, le son du moteur est coupé de toutes les sorties de la carte, et le sinus s'arrête seul si la page est fermée. Sans multimètre : onglet « Sans multimètre (3,3 V du Pi) ». Le Pi fait un signal carré 0 / 3,3 V à 1 kHz sur sa broche 16 (GPIO 23), à relier par une résistance de 1 kΩ à la pointe d'un jack mono branché dans l'entrée guitare (broche 14, la masse, sur le corps du jack). Le 3,3 V du Pi sert de tension de référence (précision d'environ ±0,3 dB). Méthode détaillée : dépôt tete-nam, `software/calibration/README.md`.
 
 **Carte son** (Système) : les cartes branchées sont listées (par exemple **MOTU M4** et **BEHRINGER UMC1820**) ; en toucher une relance l'audio sur cette carte, sans éditer de fichier. Chaque carte garde ses propres réglages (entrée, sorties, calibration) dans `~/tete-nam/cartes.json` : en revenant sur une carte, on retrouve sa calibration. La première fois sur une nouvelle carte, vérifiez sa calibration d'entrée.
 
@@ -195,7 +197,7 @@ La chaîne et les presets ne sont pas dans ce fichier : ils sont dans `~/tete-na
 | `RATE` | 48000, comme les modèles |
 | `PERIOD`, `NPERIODS` | Taille (64 à 512) et nombre (2) de buffers JACK |
 | `INPUT`, `OUTPUTS` | Entrée guitare et sorties de la carte son (ports JACK) |
-| `INPUT_DBU` | Calibration d'entrée : dBu pour 0 dBFS (16 pour la M4) |
+| `INPUT_DBU` | Calibration d'entrée : dBu pour 0 dBFS (16 pour la M4 gain au minimum ; à mesurer : Système → Mesurer…) |
 | `VOLUME_DB` | Volume général en sortie |
 | `ECRAN` | `oui` ou `non` : interface sur l'écran de la tête |
 | `ECRAN_ROTATION` | 0, 90, 180 ou 270 (écran monté à l'envers : 180) |
@@ -217,7 +219,7 @@ Après une modification à la main : `sudo systemctl restart tete-nam` (audio) o
 | `tete-nam-ble` | `ble.py` | Pont Bluetooth vers la page web, pour l'appli |
 | `tete-nam-wifi` | `wifi-secours.sh` | Réseau Wi-Fi de secours |
 
-`web.py` s'appuie sur `tone3000.py` (client de l'API TONE3000 : connexion par code, listes, recherche, téléchargements) et `bibliotheque.py` (étiquettes et fiches des modèles). Le logo TONE3000 (`tone3000-logo.svg`, `tone3000-marque.svg`) vient du plugin officiel TONE3000 (licence MIT) ; c'est une marque de TONE3000, utilisée comme leurs règles le demandent.
+`web.py` s'appuie sur `tone3000.py` (client de l'API TONE3000 : connexion par code, listes, recherche, téléchargements) et `bibliotheque.py` (étiquettes et fiches des modèles). Pour la mesure de calibration, il lance `tete-nam-mesure` (petit programme JACK compilé par `install.sh` depuis `mesure-niveau.c` : sinus de test et niveau lu). Le logo TONE3000 (`tone3000-logo.svg`, `tone3000-marque.svg`) vient du plugin officiel TONE3000 (licence MIT) ; c'est une marque de TONE3000, utilisée comme leurs règles le demandent.
 
 Fichiers installés dans `/opt/tete-nam`. Le moteur travaille dans `~/tete-nam` (presets, lien `NAM` vers `~/nam`). La disposition des chaînes du moteur est dans `chaine-init.txt` : accordeur en entrée, la chaîne `Main` (celle de l'interface et des presets), volume général en sortie.
 
