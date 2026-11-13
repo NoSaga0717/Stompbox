@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<title>Tête NAM</title>
+<!-- Page d'attente de l'écran de la tête, ouverte par ecran.sh dès que le
+     navigateur démarre, SANS attendre la page web : le navigateur se charge
+     pendant que le moteur audio et la page web démarrent. Même aspect que le
+     logo de démarrage et que l'écran « Démarrage du moteur audio » de ui.html,
+     pour qu'on ne voie pas de saut. Dès que la page web répond, on y passe. -->
+<style>
+html,body{margin:0;height:100%;background:#000;cursor:none;overflow:hidden}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;
+     font:14px system-ui,sans-serif;color:#8a8f99}
+img{max-width:70%;max-height:55%}
+.barre{width:45%;height:4px;border-radius:2px;background:#262a31;overflow:hidden}
+.barre div{width:30%;height:100%;background:#fb0202;animation:va 1.4s ease-in-out infinite alternate}
+@keyframes va{from{transform:translateX(-100%)}to{transform:translateX(333%)}}
+</style></head>
+<body>
+<img src="logo.png" alt="" onerror="this.style.visibility='hidden'">
+<div class="barre"><div></div></div>
+<div>Démarrage…</div>
+<script>
+// Adresse de l'interface : passée après « # » par ecran.sh
+var UI = decodeURIComponent(location.hash.slice(1)) || "http://127.0.0.1:8080/?ecran=1";
+var base = UI.replace(/^(https?:\/\/[^\/]+).*$/, "$1");
+// On sonde la page web en chargeant son logo (une image passe d'une page
+// locale vers le serveur local sans blocage du navigateur, un appel à l'API non).
+// Au bout d'une minute on y va quand même (l'interface a son propre écran d'attente).
+var n = 0;
+function essai() {
+  var i = new Image();
+  i.onload = function () { location.replace(UI); };
+  i.onerror = function () { if (++n > 240) location.replace(UI); else setTimeout(essai, 250); };
+  i.src = base + "/logo.png?t=" + Date.now();
+}
+essai();
+</script>
+</body></html>

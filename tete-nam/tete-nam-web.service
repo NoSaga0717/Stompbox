@@ -1,6 +1,8 @@
 [Unit]
 Description=Tete NAM - page web (http://tetenam.local:8080)
-After=tete-nam.service network-online.target
+# Pas d'attente du réseau : la page écoute sur toutes les adresses et voit
+# arriver le Wi-Fi plus tard. Attendre le réseau pouvait retarder écran et son.
+After=tete-nam.service
 
 [Service]
 Type=simple

@@ -6,6 +6,8 @@
   tete-nam presets       liste des presets
   tete-nam preset NOM    charge un preset
   tete-nam migrer        réécrit /etc/tete-nam.conf au format actuel
+  tete-nam demarrage     où passe le temps de démarrage (à lancer juste après
+                         un allumage, une fois l'interface affichée)
 
 Le moteur audio (stompbox) n'accepte qu'un client à la fois et c'est la page
 web qui le garde : ces commandes passent donc par la page web
@@ -79,6 +81,7 @@ def reglages(c=None):
         "VOLUME_DB": nombre(c.get("VOLUME_DB"), 0.0, -40, 40),
         "ECRAN": "non" if c.get("ECRAN", "oui") == "non" else "oui",
         "ECRAN_ROTATION": c.get("ECRAN_ROTATION", "0") if c.get("ECRAN_ROTATION", "0") in ("0", "90", "180", "270") else "0",
+        "ECRAN_NAVIGATEUR": "cog" if c.get("ECRAN_NAVIGATEUR") == "cog" else "chromium",
         "MIDI_UART": c.get("MIDI_UART", "") if c.get("MIDI_UART", "").startswith("/dev/") else "",
         "VEILLE": int(nombre(c.get("VEILLE"), VEILLE_DEFAUT, 0, 600)),
         "VEILLE_STYLE": "spectre" if c.get("VEILLE_STYLE") == "spectre" else "onde",
@@ -126,6 +129,11 @@ ECRAN={ECRAN}
 
 # Rotation de l'image de l'écran : 0, 90, 180 ou 270 (écran monté à l'envers : 180)
 ECRAN_ROTATION={ECRAN_ROTATION}
+
+# Navigateur de l'écran : chromium (par défaut) ou cog (plus léger, démarre
+# plus vite ; à installer d'abord : sudo apt install cog). Après changement :
+#   sudo systemctl restart tete-nam-ecran
+ECRAN_NAVIGATEUR={ECRAN_NAVIGATEUR}
 
 # Entrée MIDI DIN sur le port série du Pi (carte maison) : ex. /dev/ttyAMA0
 # Vide = pas d'entrée série. Les entrées MIDI USB et la prise MIDI IN de la
@@ -238,6 +246,40 @@ def etat():
         print(f"  {'●' if b['actif'] else '○'} {b['id']}{detail}")
 
 
+def demarrage():
+    """Résumé du temps de démarrage : systemd + repères posés par run.sh et web.py."""
+    def titre(t):
+        print()
+        print("=== " + t + " ===")
+    titre("Temps total vu par systemd (firmware = avant Linux, souvent absent sur Pi)")
+    print(sh("systemd-analyze time 2>&1"))
+    titre("Repères Tête NAM (secondes depuis le démarrage de Linux)")
+    try:
+        lignes = subprocess.run(
+            ["journalctl", "-b", "-o", "cat", "--no-pager", "-u", "tete-nam", "-u", "tete-nam-web"],
+            capture_output=True, text=True, timeout=20).stdout.splitlines()
+    except (OSError, subprocess.SubprocessError):
+        lignes = []
+    vus = {}
+    for l in lignes:
+        m = re.match(r"Repère démarrage : (.+) à ([0-9.]+) s", l)
+        if m and m.group(1) not in vus:
+            vus[m.group(1)] = float(m.group(2))
+    if not vus:
+        print("Aucun repère : version d'avant 2.4, ou journal illisible "
+              "(essayez avec sudo).")
+    for nom, t in sorted(vus.items(), key=lambda x: x[1]):
+        print(f"  {t:6.1f} s  {nom}")
+    titre("Chaîne d'attente jusqu'à l'écran (@ = prêt à, + = a duré)")
+    print(sh("systemd-analyze critical-chain --no-pager tete-nam-ecran.service 2>&1"))
+    titre("Chaîne d'attente jusqu'au moteur audio")
+    print(sh("systemd-analyze critical-chain --no-pager tete-nam.service 2>&1"))
+    titre("Les 15 services les plus longs (pas forcément sur le chemin)")
+    print("\n".join(sh("systemd-analyze blame --no-pager 2>&1").splitlines()[:15]))
+    print()
+    print("Pour garder une trace : tete-nam demarrage > ~/demarrage.txt")
+
+
 def main():
     a = sys.argv[1:]
     if a[:1] == ["etat"]:
@@ -254,6 +296,8 @@ def main():
         print("Preset chargé" if r.get("ok") else r.get("erreur"))
     elif a[:1] == ["migrer"]:
         migrer()
+    elif a[:1] == ["demarrage"]:
+        demarrage()
     else:
         print(__doc__)
 
