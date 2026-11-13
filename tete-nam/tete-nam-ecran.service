@@ -25,8 +25,9 @@ StandardOutput=journal
 StandardError=journal
 UtmpIdentifier=tty1
 UtmpMode=user
-ExecStartPre=/opt/tete-nam/ecran.sh --attendre
-# Le logo reste à l'écran jusqu'à ce que l'interface s'affiche par-dessus
+# On n'attend plus la page web : le navigateur démarre tout de suite sur une
+# page d'attente locale qui reprend le logo (voir ecran.sh). Le logo reste à
+# l'écran jusqu'à ce que le navigateur s'affiche par-dessus.
 ExecStartPre=-+/usr/bin/plymouth quit --retain-splash
 ExecStart=/opt/tete-nam/ecran.sh
 Restart=always

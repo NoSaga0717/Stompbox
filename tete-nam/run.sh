@@ -8,6 +8,11 @@ DONNEES="$HOME/tete-nam"           # presets, chaîne en cours, lien vers les mo
 # Pas de session D-Bus ici : on évite la réservation de carte par D-Bus
 export JACK_NO_AUDIO_RESERVATION=1
 
+# Repères de temps, lus par « tete-nam demarrage » (secondes depuis l'allumage
+# du noyau Linux)
+repere() { echo "Repère démarrage : $1 à $(cut -d' ' -f1 /proc/uptime) s"; }
+repere "moteur : début"
+
 if [ "$CARD" = "aucune" ]; then
     # Mode test sans carte son : JACK tourne sur une carte fictive (pas de son),
     # pour essayer l'interface et le moteur.
@@ -37,6 +42,7 @@ if ! jack_wait -w -t 15 >/dev/null; then
     kill "$JACK_PID" 2>/dev/null
     exit 1
 fi
+repere "JACK prêt"
 
 # stompbox travaille dans son dossier courant (Presets/, NAM/, réglages)
 mkdir -p "$DONNEES/Presets" "$DONNEES/Cabinets" "$DONNEES/Reverb" "$DONNEES/Music"

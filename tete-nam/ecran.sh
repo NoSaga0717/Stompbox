@@ -11,17 +11,25 @@ if [ "${ECRAN:-oui}" = non ]; then
 fi
 
 URL="http://127.0.0.1:8080/?ecran=1"
-NAV=$(command -v chromium || command -v chromium-browser)
-[ -n "$NAV" ] || { echo "ERREUR : Chromium n'est pas installé"; exit 1; }
 
-# On attend la page web (au démarrage elle arrive quelques secondes après).
-# Le service lance d'abord « ecran.sh --attendre » : le logo de démarrage
-# reste affiché pendant ce temps.
-for i in $(seq 1 60); do
-    curl -s -o /dev/null "http://127.0.0.1:8080/api/etat" && break
-    sleep 1
-done
+# Ancienne version du service : il lançait d'abord « ecran.sh --attendre ».
+# On n'attend plus la page web : le navigateur démarre tout de suite sur une
+# page d'attente locale (attente.html, même aspect que le logo de démarrage),
+# qui bascule sur l'interface dès que la page web répond. Le navigateur se
+# charge donc PENDANT que le moteur audio et la page web démarrent.
 [ "${1:-}" = --attendre ] && exit 0
+ATTENTE="file:///opt/tete-nam/attente.html#$URL"
+[ -e /opt/tete-nam/attente.html ] || ATTENTE="$URL"
+
+# Navigateur : Chromium (par défaut) ou cog (WPE WebKit, plus léger, à essayer :
+# sudo apt install cog, puis ECRAN_NAVIGATEUR=cog dans /etc/tete-nam.conf)
+NAVIGATEUR="${ECRAN_NAVIGATEUR:-chromium}"
+if [ "$NAVIGATEUR" = cog ] && ! command -v cog >/dev/null; then
+    echo "cog n'est pas installé (sudo apt install cog) : Chromium à la place"
+    NAVIGATEUR=chromium
+fi
+NAV=$(command -v chromium || command -v chromium-browser || true)
+[ "$NAVIGATEUR" = cog ] || [ -n "$NAV" ] || { echo "ERREUR : Chromium n'est pas installé"; exit 1; }
 
 # Écran tactile : curseur invisible (thème installé par install.sh)
 if [ -d /usr/share/icons/tete-nam-invisible ]; then
@@ -38,11 +46,17 @@ rm -rf "$PROFIL"
 # presque noire.
 
 # Rotation éventuelle, appliquée dans cage avant de lancer le navigateur
-LANCER="exec \"$NAV\" --kiosk --app=\"$URL\" --ozone-platform=wayland --user-data-dir=\"$PROFIL\" \
+LANCER="exec \"$NAV\" --kiosk --app=\"$ATTENTE\" --ozone-platform=wayland --user-data-dir=\"$PROFIL\" \
  --noerrdialogs --disable-infobars --no-first-run --disable-translate --disable-features=Translate,TranslateUI \
  --disable-pinch --overscroll-history-navigation=0 --disable-session-crashed-bubble \
  --check-for-update-interval=31536000 --password-store=basic --autoplay-policy=no-user-gesture-required \
- --disk-cache-size=1 --enable-features=OverlayScrollbar --force-dark-mode --lang=fr --accept-lang=fr"
+ --disk-cache-size=1 --enable-features=OverlayScrollbar --force-dark-mode --lang=fr --accept-lang=fr \
+ --no-default-browser-check --disable-component-update --disable-background-networking --disable-sync \
+ --disable-default-apps --disable-extensions"
+if [ "$NAVIGATEUR" = cog ]; then
+    # cog : un seul onglet plein écran, sans barre ; fond noir avant la page
+    LANCER="exec cog -P wl --bg-color=black \"$ATTENTE\""
+fi
 if [ "${ECRAN_ROTATION:-0}" != 0 ] && command -v wlr-randr >/dev/null; then
     LANCER="for s in \$(wlr-randr | awk '/^[^ ]/{print \$1}'); do wlr-randr --output \$s --transform $ECRAN_ROTATION; done; $LANCER"
 fi

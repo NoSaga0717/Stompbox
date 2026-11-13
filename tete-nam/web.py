@@ -138,6 +138,22 @@ def journal(*a):
     print(*a, flush=True)
 
 
+REPERES = set()
+
+
+def repere(nom):
+    """Repère de temps (une fois par démarrage), lu par « tete-nam demarrage »."""
+    if nom in REPERES:
+        return
+    REPERES.add(nom)
+    try:
+        with open("/proc/uptime") as f:
+            t = f.read().split()[0]
+    except OSError:
+        return
+    journal(f"Repère démarrage : {nom} à {t} s")
+
+
 # --- État mémorisé : preset en cours et chaîne en cours (pour le redémarrage) --
 
 def lire_etat():
@@ -248,6 +264,7 @@ def resynchroniser():
         rafraichir()
         etat["accordeur"] = False
         journal("Chaîne prête")
+        repere("son prêt (chaîne chargée)")
 
 
 # --- Tâche de fond --------------------------------------------------------------
@@ -1653,6 +1670,8 @@ class Gestionnaire(BaseHTTPRequestHandler):
     def do_GET(self):
         chemin = urllib.parse.urlparse(self.path).path
         if chemin in ("/", "/ui"):
+            if "ecran=1" in self.path:
+                repere("écran : interface demandée")
             with open(PAGE, "rb") as f:
                 self.envoyer(200, f.read(), "text/html; charset=utf-8")
         elif chemin in ("/tone3000-logo.svg", "/tone3000-marque.svg"):
@@ -1706,6 +1725,7 @@ class Gestionnaire(BaseHTTPRequestHandler):
 
 
 def main():
+    repere("page web : début")
     os.makedirs(PRESETS, exist_ok=True)
     essai_au_demarrage()
     lire_etat()
@@ -1716,8 +1736,10 @@ def main():
                                journal=journal)
     midi_vivant["ports"] = entrees
     entrees.demarrer()
+    serveur = ThreadingHTTPServer(("0.0.0.0", PORT), Gestionnaire)
     journal(f"Page web : http://{os.uname().nodename}.local:{PORT}")
-    ThreadingHTTPServer(("0.0.0.0", PORT), Gestionnaire).serve_forever()
+    repere("page web prête")
+    serveur.serve_forever()
 
 
 if __name__ == "__main__":

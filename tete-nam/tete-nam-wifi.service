@@ -4,7 +4,9 @@ After=NetworkManager.service
 Wants=NetworkManager.service
 
 [Service]
-Type=oneshot
+# « exec » et non « oneshot » : l'attente du Wi-Fi (jusqu'à 45 s) ne retarde
+# plus la fin du démarrage vue par systemd (systemd-analyze reste lisible)
+Type=exec
 RemainAfterExit=yes
 ExecStart=/opt/tete-nam/wifi-secours.sh auto
 # Priorité basse : ne jamais gêner l'audio

@@ -95,7 +95,7 @@ install -m 755 "$BINAIRE" "$CIBLE/stompbox-jack"
 install -m 755 "$ICI/run.sh" "$ICI/ecran.sh" "$ICI/cpu-performance.sh" "$ICI/tetenam.py" \
     "$ICI/web.py" "$ICI/moteur.py" "$ICI/midi.py" "$ICI/ble.py" "$ICI/wifi-secours.sh" \
     "$ICI/tone3000.py" "$ICI/bibliotheque.py" "$CIBLE/"
-install -m 644 "$ICI/ui.html" "$ICI/chaine-init.txt" "$ICI/VERSION" "$ICI/demarrage/logo.png" \
+install -m 644 "$ICI/ui.html" "$ICI/attente.html" "$ICI/chaine-init.txt" "$ICI/VERSION" "$ICI/demarrage/logo.png" \
     "$ICI/tone3000-logo.svg" "$ICI/tone3000-marque.svg" "$CIBLE/"
 echo "$(cat "$ICI/VERSION") ($(git -C "$DEPOT" rev-parse --short HEAD 2>/dev/null || echo '?'))" > "$CIBLE/VERSION"
 ln -sf "$CIBLE/tetenam.py" /usr/local/bin/tete-nam
@@ -175,6 +175,11 @@ if [ "$ECRAN" = oui ]; then
 $OVERLAY
 # Pas d'écran arc-en-ciel du firmware au démarrage
 disable_splash=1
+# Démarrage plus rapide : pas de pause avant Linux, pas de recherche de
+# caméra ni d'écran officiel (l'écran est déclaré juste au-dessus)
+boot_delay=0
+camera_auto_detect=0
+display_auto_detect=0
 # --- Tete NAM fin ---
 EOF
 
@@ -223,7 +228,34 @@ else
     systemctl enable getty@tty1.service 2>/dev/null || true
 fi
 
-etape "8/8 Démarrage automatique"
+etape "8/8 Démarrage automatique (et rapide)"
+# Services de Raspberry Pi OS inutiles sur la tête : coupés pour démarrer plus
+# vite. Liste gardée dans /etc/tete-nam-services-coupes.txt ; pour en remettre
+# un : sudo systemctl enable NOM
+#   NetworkManager-wait-online : attente du réseau (la tête n'en a pas besoin)
+#   ModemManager : modems 3G/4G ; triggerhappy : touches multimédia
+#   apt-daily*, man-db : mises à jour et index en tâche de fond
+#   rpi-eeprom-update : vérif. du firmware à chaque démarrage (se fait à la main)
+#   e2scrub_reap, glamor-test : sans utilité ici
+COUPES=""
+for svc in NetworkManager-wait-online.service ModemManager.service triggerhappy.service \
+           triggerhappy.socket apt-daily.timer apt-daily-upgrade.timer man-db.timer \
+           rpi-eeprom-update.service e2scrub_reap.service glamor-test.service; do
+    if systemctl is-enabled -q "$svc" 2>/dev/null; then
+        systemctl disable "$svc" 2>/dev/null && COUPES="$COUPES $svc"
+    fi
+done
+# cloud-init (Raspberry Pi OS Trixie) : ne sert qu'au tout premier démarrage,
+# déjà passé ; il ralentit chacun des suivants
+if [ -d /etc/cloud ] && [ ! -e /etc/cloud/cloud-init.disabled ]; then
+    touch /etc/cloud/cloud-init.disabled
+    COUPES="$COUPES cloud-init(/etc/cloud/cloud-init.disabled)"
+fi
+if [ -n "$COUPES" ]; then
+    echo "Services coupés pour démarrer plus vite :$COUPES"
+    echo "$COUPES" | tr ' ' '\n' | sed '/^$/d' >> /etc/tete-nam-services-coupes.txt
+fi
+
 for svc in tete-nam tete-nam-web tete-nam-ecran; do
     sed "s/__USER__/$UTIL/" "$ICI/$svc.service" > "/etc/systemd/system/$svc.service"
 done

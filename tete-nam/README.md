@@ -144,6 +144,16 @@ Repères :
 
 Autres commandes : `tete-nam presets` (liste), `tete-nam preset "Nom"` (charger), `tete-nam cpu`.
 
+### Temps de démarrage
+
+Juste après un allumage, une fois l'interface affichée :
+
+```bash
+tete-nam demarrage
+```
+
+Il affiche les repères (JACK prêt, page web prête, son prêt, interface demandée par l'écran, en secondes depuis le démarrage de Linux) et ce qui a fait attendre. L'installation coupe les services de Raspberry Pi OS inutiles sur la tête (liste dans `/etc/tete-nam-services-coupes.txt`, pour en remettre un : `sudo systemctl enable NOM`) et l'écran n'attend plus la page web : le navigateur démarre en même temps que le moteur, sur une page d'attente qui reprend le logo.
+
 ### Sans Wi-Fi (studio) : le réseau de la tête
 
 Au démarrage, la tête attend jusqu'à 45 secondes un Wi-Fi qu'elle connaît ou un câble réseau. Si elle ne trouve ni l'un ni l'autre, elle crée **son propre réseau Wi-Fi** :
@@ -199,6 +209,7 @@ La chaîne et les presets ne sont pas dans ce fichier : ils sont dans `~/tete-na
 | `VOLUME_DB` | Volume général en sortie |
 | `ECRAN` | `oui` ou `non` : interface sur l'écran de la tête |
 | `ECRAN_ROTATION` | 0, 90, 180 ou 270 (écran monté à l'envers : 180) |
+| `ECRAN_NAVIGATEUR` | `chromium` (par défaut) ou `cog` (plus léger, à essayer : `sudo apt install cog` d'abord) |
 | `MIDI_UART` | Port série de l'entrée MIDI DIN (vide = aucun ; l'USB et la M4 sont toujours lus) |
 | `T3K_CLE` | Clé publique de l'application TONE3000 (`t3k_pub_…`), réglable depuis Système |
 | `T3K_RECHERCHE` | `oui` ou `non` : recherche texte dans tout le catalogue TONE3000 |
